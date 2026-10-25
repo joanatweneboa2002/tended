@@ -5,10 +5,11 @@ import { AppointmentSummary } from './Appointments'
 import { AskTendedButton } from './AskTended'
 import { CheckCard, SuggestionsCard, useLatestCheck } from './CheckPanel'
 import { Icon, IconCircle, TASK_LOOK, type IconName, type Tone } from './Icons'
+import { RealBadge } from './People'
 import { PetAvatar } from './PetAvatar'
 import { ProgressRing } from './ProgressRing'
-import { TickExtras, TodoRow, useTaskTick } from './Schedule'
-import { dayIn, gap, greeting, stampFor, timeIn, todayIn, yourTz } from './time'
+import { lateText, TickExtras, TodoRow, useTaskTick } from './Schedule'
+import { dayIn, gap, greeting, stampFor, timeIn, todayIn, wallToDate, yourTz } from './time'
 import { When } from './ui'
 
 export type Tab = 'home' | 'schedule' | 'health' | 'messages' | 'appointments' | 'profile'
@@ -58,34 +59,39 @@ function CaretakerHome({ d, pet, go, now, reload }: { d: Dashboard; pet: Pet; go
     const t = setTimeout(() => setUndo(null), UNDO_MS)
     return () => clearTimeout(t)
   }, [undo])
-  const rest = d.tasks.filter((t) => t.id !== d.next_task?.id)
+  const nextId = (d.next_task ?? d.tasks.find((t) => t.state === 'pending'))?.id // same task as Next up
+  const rest = d.tasks.filter((t) => t.id !== nextId)
   return (
     <div className="dash">
-      <Hero d={d} pet={pet} role="caretaker" now={now} urgent={alerts.some((a) => a.level === 'urgent')} go={go} />
-      <AlertStack alerts={alerts} pet={pet} role="caretaker" emptyText="Nothing needs attention right now." />
-      <NextUp d={d} pet={pet} reload={reload} onTicked={(id, title) => setUndo({ id, title })} />
-      {undo && (
-        <p className="undo-toast" role="status">
-          <span>
-            <b>{undo.title}</b> ticked off
-          </span>
-          <button
-            className="link-btn"
-            onClick={async () => {
-              setUndo(null)
-              await api.undoCheckin(undo.id).catch(() => {})
-              reload()
-            }}
-          >
-            Undo
-          </button>
-        </p>
-      )}
-      <AskTendedButton pet={pet} variant="card" />
-      {rest.length > 0 && <Timeline title="Rest of today" tasks={rest} d={d} pet={pet} role="caretaker" go={go} reload={reload} />}
-      <SuggestionsCard pet={pet} />
-      <NextAppointment d={d} pet={pet} role="caretaker" go={go} />
-      <LatestMessage msg={d.latest_message} unread={d.unread_messages} pet={pet} role="caretaker" go={go} />
+      <div className="dash-main">
+        <Hero d={d} pet={pet} role="caretaker" now={now} urgent={alerts.some((a) => a.level === 'urgent')} go={go} />
+        <AlertStack alerts={alerts} pet={pet} role="caretaker" emptyText="Nothing needs attention right now." />
+        <NextUp d={d} pet={pet} reload={reload} onTicked={(id, title) => setUndo({ id, title })} />
+        {undo && (
+          <p className="undo-toast" role="status">
+            <span>
+              <b>{undo.title}</b> ticked off
+            </span>
+            <button
+              className="link-btn"
+              onClick={async () => {
+                setUndo(null)
+                await api.undoCheckin(undo.id).catch(() => {})
+                reload()
+              }}
+            >
+              Undo
+            </button>
+          </p>
+        )}
+        <AskTendedButton pet={pet} variant="card" />
+        {rest.length > 0 && <Timeline title="Rest of today" tasks={rest} d={d} pet={pet} role="caretaker" go={go} reload={reload} />}
+      </div>
+      <div className="dash-side">
+        <SuggestionsCard pet={pet} />
+        <NextAppointment d={d} pet={pet} role="caretaker" go={go} />
+        <LatestMessage msg={d.latest_message} unread={d.unread_messages} pet={pet} role="caretaker" go={go} />
+      </div>
     </div>
   )
 }
@@ -102,14 +108,18 @@ function OwnerHome({ d, pet, go, now, reload, onOpenActivity }: {
   const alerts = [...watchAlerts(check), ...todayAlerts(d.alerts)]
   return (
     <div className="dash">
-      <Hero d={d} pet={pet} role="owner" now={now} urgent={alerts.some((a) => a.level === 'urgent')} go={go} />
-      <AlertStack alerts={alerts} pet={pet} role="owner" emptyText="Nothing needs attention right now." />
-      <QuickStats d={d} go={go} />
-      <Timeline title="Today" tasks={d.tasks} d={d} pet={pet} role="owner" go={go} reload={reload} />
-      <CheckCard pet={pet} check={check} onCheck={setCheck} onOpenActivity={onOpenActivity} />
-      <PhotoDiary pet={pet} />
-      <NextAppointment d={d} pet={pet} role="owner" go={go} />
-      <LatestMessage msg={d.latest_message} unread={d.unread_messages} pet={pet} role="owner" go={go} />
+      <div className="dash-main">
+        <Hero d={d} pet={pet} role="owner" now={now} urgent={alerts.some((a) => a.level === 'urgent')} go={go} />
+        <AlertStack alerts={alerts} pet={pet} role="owner" emptyText="Nothing needs attention right now." />
+        <QuickStats d={d} go={go} />
+        <Timeline title="Today" tasks={d.tasks} d={d} pet={pet} role="owner" go={go} reload={reload} />
+      </div>
+      <div className="dash-side">
+        <CheckCard pet={pet} check={check} onCheck={setCheck} onOpenActivity={onOpenActivity} />
+        <PhotoDiary pet={pet} />
+        <NextAppointment d={d} pet={pet} role="owner" go={go} />
+        <LatestMessage msg={d.latest_message} unread={d.unread_messages} pet={pet} role="owner" go={go} />
+      </div>
     </div>
   )
 }
@@ -173,7 +183,7 @@ function Places({ pet, role, now }: { pet: Pet; role: Role; now: Date }) {
           <small>
             {' '}
             · {timeIn(now, pet.owner_timezone)}
-            {differentDay && ` ${day(pet.owner_timezone)}`} for you in {pet.owner_city || 'your city'}
+            {differentDay && ` ${day(pet.owner_timezone)}`} for you
           </small>
         )}
       </p>
@@ -185,12 +195,11 @@ function Hero({ d, pet, role, now, urgent, go }: { d: Dashboard; pet: Pet; role:
   return (
     <section className="hero">
       <div className="hero-text">
-        <h1>{pet.name}</h1>
+        <h1>
+          {pet.name} <RealBadge sample={pet.is_sample} />
+        </h1>
         <p className="hero-status">{status(d, urgent)}</p>
-        <p className="hero-facts">
-          {petFacts(pet)}
-          {pet.is_sample && <span className="badge sample">Sample</span>}
-        </p>
+        <p className="hero-facts">{petFacts(pet)}</p>
       </div>
       <Places pet={pet} role={role} now={now} />
       <div className="hero-media">
@@ -295,20 +304,22 @@ function Timeline({ title, tasks, d, pet, role, go, reload }: {
 // ---------------------------------------------------------------------------
 
 function NextUp({ d, pet, reload, onTicked }: { d: Dashboard; pet: Pet; reload: () => void; onTicked: (id: number, title: string) => void }) {
-  if (!d.next_task) {
+  // the next task still to come, or else the earliest one that's late and not done yet
+  const next = d.next_task ?? d.tasks.find((t) => t.state === 'pending') ?? null
+  if (!next) {
     const { done, total } = d.progress
     return (
       <section className="card next-up is-clear">
         <p className="kicker">Next up</p>
         <h2 className="next-title">{total ? 'Nothing left today' : 'Nothing scheduled today'}</h2>
-        <p className="muted">{total ? `${done} of ${total} things are ticked off. Thank you!` : `Enjoy the time with ${pet.name}.`}</p>
+        <p className="muted">{total ? `${done} of ${total} done${done < total ? ', the rest marked as couldn’t do' : ''}. Thank you!` : `Enjoy the time with ${pet.name}.`}</p>
       </section>
     )
   }
-  return <NextUpCard key={d.next_task.id} task={d.next_task} date={d.today} reload={reload} onTicked={onTicked} />
+  return <NextUpCard key={next.id} task={next} date={d.today} pet={pet} reload={reload} onTicked={onTicked} />
 }
 
-function NextUpCard({ task, date, reload, onTicked }: { task: DashTask; date: string; reload: () => void; onTicked: (id: number, title: string) => void }) {
+function NextUpCard({ task, date, pet, reload, onTicked }: { task: DashTask; date: string; pet: Pet; reload: () => void; onTicked: (id: number, title: string) => void }) {
   const t = useTaskTick(task, date, 'caretaker', reload, onTicked)
   const fileRef = useRef<HTMLInputElement>(null)
   const look = TASK_LOOK[task.type]
@@ -323,6 +334,7 @@ function NextUpCard({ task, date, reload, onTicked }: { task: DashTask; date: st
             {formatTime(task.time)}
             {task.dose && <span> · {task.dose}</span>}
           </p>
+          <LateTag date={date} time={task.time} pet={pet} />
         </div>
       </div>
       {task.notes && <p className="next-notes">{task.notes}</p>}
@@ -350,6 +362,13 @@ function NextUpCard({ task, date, reload, onTicked }: { task: DashTask; date: st
       <TickExtras t={t} task={task} />
     </section>
   )
+}
+
+/** "30 min late" when a task's time has passed. */
+function LateTag({ date, time, pet }: { date: string; time: string; pet: Pet }) {
+  const ms = Date.now() - wallToDate(date, time, pet.home_timezone).getTime()
+  if (ms <= 0) return null
+  return <span className="status-tag late">{lateText(ms)}</span>
 }
 
 // ---------------------------------------------------------------------------

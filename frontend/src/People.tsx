@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { User } from './api'
+import { api, type User } from './api'
 
-// Demo people get a drawn avatar (initial on a tint) instead of a photo of a stranger.
+// People who join can add a photo; demo people (and anyone without one) get a
+// drawn avatar: their initial on a tint.
 const TINT: Record<string, string> = {
   joana: 'var(--peach)',
   maya: 'var(--lilac)',
@@ -11,7 +12,10 @@ const TINT: Record<string, string> = {
   yuki: 'var(--peach)',
 }
 
-export function PersonAvatar({ user, size = 40 }: { user: Pick<User, 'id' | 'name'>; size?: number }) {
+export function PersonAvatar({ user, size = 40 }: { user: Pick<User, 'id' | 'name'> & { photo_url?: string | null }; size?: number }) {
+  if (user.photo_url) {
+    return <img className="person-avatar" src={user.photo_url} alt="" style={{ width: size, height: size }} />
+  }
   return (
     <span
       className="person-avatar"
@@ -25,8 +29,19 @@ export function PersonAvatar({ user, size = 40 }: { user: Pick<User, 'id' | 'nam
 
 export const roleLabel = (u: User) => (u.role === 'owner' ? 'Pet owner' : 'Caretaker')
 
-/** The small round profile photo in the top bar: who you are, and "Switch user". */
-export function ProfileMenu({ user, onAddPet, onSwitch }: { user: User; onAddPet?: () => void; onSwitch: () => void }) {
+/** "Sample" for the demo data, "Real user" for people and pets added by testers. */
+export function RealBadge({ sample }: { sample: boolean }) {
+  return <span className={`badge ${sample ? 'sample' : 'real'}`}>{sample ? 'Sample' : 'Real user'}</span>
+}
+
+/** The small round profile photo in the top bar: who you are, "Switch user", and
+ *  (for people who joined) "Delete my profile and pets". */
+export function ProfileMenu({ user, onAddPet, onSwitch, onDeleted }: {
+  user: User
+  onAddPet?: () => void
+  onSwitch: () => void
+  onDeleted: () => void
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -55,11 +70,12 @@ export function ProfileMenu({ user, onAddPet, onSwitch }: { user: User; onAddPet
               <p className="profile-name">{user.name}</p>
               <p className="profile-role">{roleLabel(user)}</p>
               <p className="profile-city">
-                {user.city}, {user.country} {user.flag}
+                {[user.city, user.country].filter(Boolean).join(', ')} {user.flag}
               </p>
             </div>
           </div>
           {user.note && <p className="muted small profile-note">{user.note}</p>}
+          <RealBadge sample={user.is_sample} />
           {onAddPet && (
             <button
               className="btn ghost"
@@ -75,6 +91,24 @@ export function ProfileMenu({ user, onAddPet, onSwitch }: { user: User; onAddPet
           <button className="btn primary" role="menuitem" onClick={onSwitch}>
             Switch user
           </button>
+          {!user.is_sample && (
+            <button
+              className="btn danger-link"
+              role="menuitem"
+              onClick={async () => {
+                const what = user.role === 'owner' ? 'your profile, your pets, everything logged for them, and the caretakers you added' : 'your profile'
+                if (!confirm(`Delete ${what}? This can't be undone.`)) return
+                try {
+                  await api.deleteMe()
+                  onDeleted()
+                } catch (e) {
+                  alert((e as Error).message)
+                }
+              }}
+            >
+              Delete my profile and pets
+            </button>
+          )}
         </div>
       )}
     </div>

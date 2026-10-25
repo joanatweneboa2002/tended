@@ -117,18 +117,18 @@ def with_photo_url(row: sqlite3.Row) -> dict:
 
 def pet_out(row: sqlite3.Row) -> dict:
     """A pet for the browser, with where its owner and caretaker are."""
-    from backend.users import USERS
-    people = {u[0]: u for u in USERS}
+    from backend.users import people
     pet = with_photo_url(row)
     pet["is_sample"] = bool(pet["is_sample"])
-    owner, carer = people.get(pet.get("owner_id")), people.get(pet.get("caretaker_id"))
+    found = people([pet.get("owner_id"), pet.get("caretaker_id")])
+    owner, carer = found.get(pet.get("owner_id")), found.get(pet.get("caretaker_id"))
     if owner:  # the owner's clock is their account's, never a stale copy
-        pet["owner_timezone"] = owner[6]
-    pet["owner_name"] = owner[1] if owner else ""
-    pet["owner_city"] = owner[3] if owner else ""
-    pet["owner_flag"] = owner[5] if owner else ""
-    pet["caretaker_city"] = carer[3] if carer else ""
-    pet["caretaker_flag"] = carer[5] if carer else ""
+        pet["owner_timezone"] = owner["timezone"]
+    pet["owner_name"] = owner["name"] if owner else ""
+    pet["owner_city"] = owner["city"] if owner else ""
+    pet["owner_flag"] = owner["flag"] if owner else ""
+    pet["caretaker_city"] = carer["city"] if carer else ""
+    pet["caretaker_flag"] = carer["flag"] if carer else ""
     return pet
 
 

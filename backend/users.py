@@ -1,6 +1,8 @@
-"""Demo accounts and who-can-see-what.
+"""Accounts and who-can-see-what.
 
-Demo only: there are no passwords. The browser says who is using Tended with
+Six demo accounts always exist (USERS); testers can also join with a name,
+city and time zone, and owners can add a caretaker for one of their pets.
+There are no passwords. The browser says who is using Tended with
 an `X-Tended-User` header (the person's id, e.g. "lena"), and every request
 is checked here:
 
@@ -41,18 +43,85 @@ ZONE_FLAGS = {
 }
 
 
+def _zone_tables() -> tuple[dict[str, str], dict[str, str]]:
+    """{time zone: country code} and {country code: country name}, from the tz database."""
+    import importlib.resources
+    from pathlib import Path
+
+    def read(name: str) -> str:
+        try:
+            return importlib.resources.files("tzdata.zoneinfo").joinpath(name).read_text(encoding="utf-8")
+        except Exception:  # no tzdata package: the system copy (Mac, Linux)
+            path = Path("/usr/share/zoneinfo") / name
+            return path.read_text(encoding="utf-8") if path.exists() else ""
+
+    rows = lambda text: [line.split("\t") for line in text.splitlines() if line and not line.startswith("#")]
+    zones = {r[2]: r[0] for r in rows(read("zone.tab")) if len(r) >= 3}
+    names = {r[0]: r[1] for r in rows(read("iso3166.tab")) if len(r) >= 2}
+    return zones, names
+
+
+_ZONES, _COUNTRIES = _zone_tables()
+
+
+def _zone_bytes(tz: str) -> bytes:
+    import importlib.resources
+    try:
+        return importlib.resources.files("tzdata.zoneinfo").joinpath(*tz.split("/")).read_bytes()
+    except Exception:
+        return b""
+
+
+def _country_by_alias(tz: str) -> str:
+    """Browsers often use older names ("Asia/Calcutta" for "Asia/Kolkata"). An old
+    name and its current one have identical tz data, so match on the data."""
+    data = _zone_bytes(tz)
+    if not data:
+        return ""
+    for zone, code in _ZONES.items():
+        if _zone_bytes(zone) == data:
+            _ZONES[tz] = code  # remember it
+            return code
+    return ""
+
+
+def place_for_zone(tz: str) -> tuple[str, str]:
+    """(flag, country) for a time zone, e.g. ("🇵🇹", "Portugal") for Europe/Lisbon."""
+    code = _ZONES.get(tz) or _country_by_alias(tz)
+    if len(code) != 2:
+        return ZONE_FLAGS.get(tz, ""), ""
+    flag = "".join(chr(0x1F1E6 + ord(ch) - ord("A")) for ch in code.upper())
+    return flag, _COUNTRIES.get(code, "")
+
+
 def ensure_users(conn: sqlite3.Connection) -> None:
     """The demo people always exist (and keep these details)."""
     conn.executemany(
-        "INSERT INTO users (id, name, role, city, country, flag, timezone, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+        "INSERT INTO users (id, name, role, city, country, flag, timezone, note, is_sample) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1) "
         "ON CONFLICT(id) DO UPDATE SET name = excluded.name, role = excluded.role, city = excluded.city, "
-        "country = excluded.country, flag = excluded.flag, timezone = excluded.timezone, note = excluded.note",
+        "country = excluded.country, flag = excluded.flag, timezone = excluded.timezone, note = excluded.note, "
+        "is_sample = 1",
         USERS,
     )
 
 
 def user_out(row: sqlite3.Row) -> dict:
-    return {k: row[k] for k in ("id", "name", "role", "city", "country", "flag", "timezone", "note")}
+    from backend.common import photo_url
+    out = {k: row[k] for k in ("id", "name", "role", "city", "country", "flag", "timezone", "note")}
+    out["photo_url"] = photo_url(row["photo_path"])
+    out["is_sample"] = bool(row["is_sample"])
+    return out
+
+
+def people(ids) -> dict[str, sqlite3.Row]:
+    """Users by id (for showing a pet's owner and caretaker)."""
+    ids = [i for i in set(ids) if i]
+    if not ids:
+        return {}
+    with connect() as conn:
+        rows = conn.execute(f"SELECT * FROM users WHERE id IN ({', '.join('?' * len(ids))})", ids).fetchall()
+    return {r["id"]: r for r in rows}
 
 
 def can_see(user: sqlite3.Row, pet: sqlite3.Row) -> bool:

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { api, type EmergencyFields, type Pet, type PetInput, type Role, type User } from './api'
+import { RealBadge } from './People'
 import { PetAvatar } from './PetAvatar'
 import { Field } from './ui'
 
@@ -51,7 +52,7 @@ function ProfileReadOnly({ pet }: { pet: Pet }) {
         <PetAvatar pet={pet} size={96} />
         <div>
           <h1>{pet.name}</h1>
-          {pet.is_sample && <span className="badge sample">Sample data</span>}
+          <RealBadge sample={pet.is_sample} />
         </div>
       </div>
       <dl className="snapshot">
@@ -85,7 +86,7 @@ const TIMEZONES: string[] = (() => {
   }
 })()
 
-const browserTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
+export const browserTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
 
 const emptyPet = (): PetInput => ({
   name: '',
@@ -103,7 +104,7 @@ const emptyPet = (): PetInput => ({
 
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v))
 
-function ZoneSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function ZoneSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const zones = useMemo(() => (TIMEZONES.includes(value) ? TIMEZONES : [value, ...TIMEZONES]), [value])
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)}>
@@ -129,11 +130,20 @@ export function ProfileForm({
 }) {
   const [form, setForm] = useState<PetInput>(() => (pet ? { ...pet } : emptyPet()))
   const [carers, setCarers] = useState<User[]>([])
+  const [newCarer, setNewCarer] = useState<{ name: string; city: string } | null>(null)
+  const [photo, setPhoto] = useState<File | null>(null) // for a new pet
   const [saving, setSaving] = useState(false)
   useEffect(() => {
-    api.users().then((list) => setCarers(list.filter((u) => u.role === 'caretaker')), () => {})
+    api.myCaretakers().then(setCarers, () => {})
   }, [])
+  const NEW = '__new__'
   const pickCarer = (id: string) => {
+    if (id === NEW) {
+      setNewCarer({ name: '', city: form.home_city })
+      setForm((f) => ({ ...f, caretaker_id: null }))
+      return
+    }
+    setNewCarer(null)
     const c = carers.find((u) => u.id === id)
     // the pet lives where its caretaker is
     setForm((f) => (c ? { ...f, caretaker_id: c.id, caretaker_name: c.name, home_city: c.city, home_timezone: c.timezone } : { ...f, caretaker_id: null }))
@@ -159,7 +169,15 @@ export function ProfileForm({
       caretaker_name: form.caretaker_name,
     }
     try {
-      const saved = pet ? await api.updatePet(pet.id, body) : await api.createPet(body)
+      let saved = pet ? await api.updatePet(pet.id, body) : await api.createPet(body)
+      if (photo) saved = await api.uploadPetPhoto(saved.id, photo)
+      if (newCarer && newCarer.name.trim()) {
+        // creates the caretaker's profile, linked only to this pet
+        saved = await api.addCaretaker(saved.id, { name: newCarer.name, city: newCarer.city || form.home_city })
+        setCarers(await api.myCaretakers())
+        setForm((f) => ({ ...f, caretaker_id: saved.caretaker_id, caretaker_name: saved.caretaker_name }))
+        setNewCarer(null)
+      }
       onSaved(saved)
       setMsg({ ok: true, text: 'Saved.' })
     } catch (err) {
@@ -189,6 +207,11 @@ export function ProfileForm({
     <form className="card form" onSubmit={submit}>
       {!pet && <img className="form-hero" src="/pets/happy-dog.jpg" alt="" />}
       <h2>{pet ? 'Pet profile' : 'Add a pet'}</h2>
+      {!pet && (
+        <Field label="Photo (optional)">
+          <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        </Field>
+      )}
       {pet && (
         <div className="inline photo-row">
           <PetAvatar pet={pet} size={72} />
@@ -220,15 +243,26 @@ export function ProfileForm({
           </div>
         </Field>
         <Field label="Caretaker (they'll see this pet)">
-          <select value={form.caretaker_id ?? ''} onChange={(e) => pickCarer(e.target.value)}>
+          <select value={newCarer ? NEW : (form.caretaker_id ?? '')} onChange={(e) => pickCarer(e.target.value)}>
             <option value="">No one yet</option>
             {carers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name} · {c.city} {c.flag}
               </option>
             ))}
+            <option value={NEW}>+ Add a new caretaker…</option>
           </select>
         </Field>
+        {newCarer && (
+          <>
+            <Field label="Caretaker's name *">
+              <input required maxLength={40} value={newCarer.name} onChange={(e) => setNewCarer({ ...newCarer, name: e.target.value })} />
+            </Field>
+            <Field label="Caretaker's city *">
+              <input required maxLength={60} value={newCarer.city} onChange={(e) => setNewCarer({ ...newCarer, city: e.target.value })} />
+            </Field>
+          </>
+        )}
         <Field label="City where the pet is">
           <input value={form.home_city} onChange={(e) => set('home_city', e.target.value)} placeholder="Accra, Zurich, Tokyo…" />
         </Field>

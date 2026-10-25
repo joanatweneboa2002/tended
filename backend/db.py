@@ -26,7 +26,11 @@ CREATE TABLE IF NOT EXISTS users (
     country   TEXT NOT NULL DEFAULT '',
     flag      TEXT NOT NULL DEFAULT '',
     timezone  TEXT NOT NULL,
-    note      TEXT NOT NULL DEFAULT ''
+    note      TEXT NOT NULL DEFAULT '',
+    photo_path  TEXT,
+    is_sample   INTEGER NOT NULL DEFAULT 0,  -- 1 = demo account, 0 = someone who joined
+    created_by  TEXT,                        -- the owner who added this caretaker
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- owner_timezone mirrors the owner's account; home_* is where the pet (and its
@@ -216,6 +220,12 @@ CREATE INDEX IF NOT EXISTS log_suggestions_by_pet ON log_suggestions (pet_id, st
 
 # Columns added after the first version, so older databases get them too.
 MIGRATIONS = {
+    "users": [
+        ("photo_path", "TEXT"),
+        ("is_sample", "INTEGER NOT NULL DEFAULT 0"),
+        ("created_by", "TEXT"),
+        ("created_at", "TEXT NOT NULL DEFAULT ''"),
+    ],
     "pets": [
         ("home_timezone", "TEXT NOT NULL DEFAULT 'America/New_York'"),
         ("caretaker_name", "TEXT NOT NULL DEFAULT ''"),

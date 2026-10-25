@@ -11,6 +11,8 @@ after a dose was given can't open a second slot that day. The database has
 a unique index (one_dose_per_slot) as a second line of defence.
 """
 
+import re
+import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -49,7 +51,7 @@ from backend.db import connect, init_db, task_runs_on
 from backend.schemas import TaskIn, insert_task
 from backend.seed import ensure_accounts, ensure_sample_pets, ensure_sample_photos, reset_sample_data, seed_if_empty
 from backend.token_log import ensure_token_log
-from backend.users import ZONE_FLAGS, Me, can_see, guard, require_pet, user_out, visible_pets_sql
+from backend.users import Me, place_for_zone, can_see, guard, require_pet, user_out, visible_pets_sql
 
 
 def _ai_status() -> dict:
@@ -184,6 +186,87 @@ def whoami(user=Me) -> dict:
     return user_out(user)
 
 
+def _valid_zone(tz: str) -> str:
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(422, f"Unknown time zone '{tz}'.") from None
+    return tz
+
+
+def _new_user(conn, name: str, role: str, city: str, tz: str, created_by: str | None = None,
+              photo: str | None = None) -> sqlite3.Row:
+    name, city = name.strip(), city.strip()
+    if not (1 <= len(name) <= 40) or not (1 <= len(city) <= 60):
+        raise HTTPException(422, "Please give a name (up to 40 letters) and a city.")
+    uid = f"{re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')[:20] or 'user'}-{secrets.token_hex(3)}"
+    flag, country = place_for_zone(_valid_zone(tz))
+    conn.execute(
+        "INSERT INTO users (id, name, role, city, country, flag, timezone, photo_path, is_sample, created_by, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
+        (uid, name, role, city, country, flag, tz, photo, created_by, utc_now_iso()),
+    )
+    return conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+
+
+@app.post("/api/users", status_code=201)
+async def join(
+    name: str = Form(...),
+    city: str = Form(...),
+    timezone_: str = Form(..., alias="timezone"),
+    role: Literal["owner", "caretaker"] = Form(...),
+    photo: UploadFile | None = File(None),
+) -> dict:
+    """"New here? Create your profile": no password, just who and where you are."""
+    _valid_zone(timezone_)
+    checked = await read_photo(photo)
+    saved = save_photo(checked, "user") if checked else None
+    try:
+        with connect() as conn:
+            return user_out(_new_user(conn, name, role, city, timezone_, photo=saved))
+    except BaseException:
+        remove_photo(saved)
+        raise
+
+
+@app.delete("/api/me", status_code=204)
+def delete_me(user=Me) -> None:
+    """"Delete my profile and pets", for testers. Demo accounts stay."""
+    if user["is_sample"]:
+        raise HTTPException(403, "Demo accounts stay so everyone can try Tended.")
+    with connect() as conn:
+        pet_ids = [r["id"] for r in conn.execute("SELECT id FROM pets WHERE owner_id = ?", (user["id"],))]
+    for pid in pet_ids:
+        _delete_pet_and_photos(pid)
+    with connect() as conn:
+        helpers = conn.execute("SELECT * FROM users WHERE created_by = ?", (user["id"],)).fetchall()
+        conn.execute("UPDATE pets SET caretaker_id = NULL, caretaker_name = '' WHERE caretaker_id = ?", (user["id"],))
+        for h in helpers:  # caretakers this owner added, linked only to the pets just deleted
+            conn.execute("DELETE FROM users WHERE id = ?", (h["id"],))
+        conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
+    for row in [user, *helpers]:
+        remove_photo(row["photo_path"])
+
+
+class CaretakerIn(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    city: str = Field(min_length=1, max_length=60)
+    timezone: str | None = None  # defaults to the pet's time zone
+
+
+@app.post("/api/pets/{pet_id}/caretaker", status_code=201)
+def add_caretaker(pet_id: int, body: CaretakerIn, user=Me) -> dict:
+    """The owner adds their caretaker: a new profile that can see only this pet."""
+    _owner_only(user)
+    with connect() as conn:
+        pet = get_pet_row(conn, pet_id)
+        carer = _new_user(conn, body.name, "caretaker", body.city, body.timezone or pet["home_timezone"],
+                          created_by=user["id"])
+        conn.execute("UPDATE pets SET caretaker_id = ?, caretaker_name = ? WHERE id = ?",
+                     (carer["id"], carer["name"], pet_id))
+        return pet_out(get_pet_row(conn, pet_id))
+
+
 def _owner_only(user) -> None:
     if user["role"] != "owner":
         raise HTTPException(403, "Only the pet's owner can change its profile.")
@@ -193,12 +276,17 @@ def _pet_fields(conn: sqlite3.Connection, body: PetIn, owner) -> dict:
     """Profile fields plus who looks after the pet, checked against the demo accounts."""
     data = body.model_dump()
     if body.caretaker_id:
-        carer = conn.execute("SELECT * FROM users WHERE id = ? AND role = 'caretaker'", (body.caretaker_id,)).fetchone()
+        # only a caretaker this owner added, or one already looking after one of their pets
+        carer = conn.execute(
+            "SELECT * FROM users u WHERE id = ? AND role = 'caretaker' AND (created_by = ? OR EXISTS "
+            "(SELECT 1 FROM pets p WHERE p.caretaker_id = u.id AND p.owner_id = ?))",
+            (body.caretaker_id, owner["id"], owner["id"]),
+        ).fetchone()
         if carer is None:
-            raise HTTPException(422, f"No caretaker called '{body.caretaker_id}'.")
+            raise HTTPException(422, "Pick one of your caretakers, or add a new one.")
         data["caretaker_name"] = carer["name"]
     data["owner_timezone"] = owner["timezone"]
-    data["home_flag"] = ZONE_FLAGS.get(body.home_timezone, "")
+    data["home_flag"] = place_for_zone(body.home_timezone)[0]
     return data
 
 
@@ -248,9 +336,25 @@ def update_pet(pet_id: int, body: PetIn, user=Me) -> dict:
         return pet_out(get_pet_row(conn, pet_id))
 
 
+@app.get("/api/my-caretakers")
+def my_caretakers(user=Me) -> list[dict]:
+    """Caretakers this owner can pick for a pet."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM users u WHERE role = 'caretaker' AND (created_by = ? OR EXISTS "
+            "(SELECT 1 FROM pets p WHERE p.caretaker_id = u.id AND p.owner_id = ?)) ORDER BY name",
+            (user["id"], user["id"]),
+        ).fetchall()
+    return [user_out(r) for r in rows]
+
+
 @app.delete("/api/pets/{pet_id}", status_code=204)
 def delete_pet(pet_id: int, user=Me) -> None:
     _owner_only(user)
+    _delete_pet_and_photos(pet_id)
+
+
+def _delete_pet_and_photos(pet_id: int) -> None:
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)
         photos = [r[0] for r in conn.execute(
@@ -374,9 +478,12 @@ async def create_checkin(
     photo: UploadFile | None = File(None),
     user=Me,
 ) -> dict:
-    """Whoever is signed in ticks it off, and only for a pet they may see."""
+    """Only the caretaker ticks tasks off, and only for a pet they look after.
+    Owners see what was done; they change the schedule, not the check-ins."""
     if role is not None and role != user["role"]:
         raise HTTPException(403, f"{user['name']} is a {user['role']}, not a {role}.")
+    if user["role"] != "caretaker":
+        raise HTTPException(403, "Only the caretaker ticks tasks off. Owners can see what was done and edit the schedule.")
     day = parse_day(slot_date)
     reason = reason.strip()
     if status == "could_not" and not reason:
@@ -457,9 +564,11 @@ UNDO_SECONDS = 120
 
 
 @app.delete("/api/checkins/{checkin_id}", status_code=204)
-def undo_checkin(checkin_id: int) -> None:
-    """Undo an accidental tick. Only allowed for a short time after it was made,
-    so the history (and the meds rule) can't be quietly rewritten later."""
+def undo_checkin(checkin_id: int, user=Me) -> None:
+    """Undo an accidental tick. Only the caretaker, and only for a short time after it
+    was made, so the history (and the meds rule) can't be quietly rewritten later."""
+    if user["role"] != "caretaker":
+        raise HTTPException(403, "Only the caretaker can undo a check-in.")
     with connect() as conn:
         row = conn.execute("SELECT * FROM checkins WHERE id = ?", (checkin_id,)).fetchone()
         if row is None:

@@ -21,6 +21,8 @@ export interface User {
   flag: string
   timezone: string
   note: string
+  photo_url: string | null
+  is_sample: boolean // a demo account; people who join are real users
 }
 
 /** A pet as listed on the "Who's using Tended?" screen. */
@@ -423,6 +425,19 @@ const json = (method: string, body: unknown): RequestInit => ({
 export const api = {
   users: () => request<(User & { pets: PetBrief[] })[]>('/api/users'),
   me: () => request<User>('/api/me'),
+  join: (p: { name: string; city: string; timezone: string; role: Role; photo: File | null }) => {
+    const form = new FormData()
+    form.append('name', p.name)
+    form.append('city', p.city)
+    form.append('timezone', p.timezone)
+    form.append('role', p.role)
+    if (p.photo) form.append('photo', p.photo)
+    return request<User>('/api/users', { method: 'POST', body: form })
+  },
+  deleteMe: () => request<void>('/api/me', { method: 'DELETE' }),
+  myCaretakers: () => request<User[]>('/api/my-caretakers'),
+  addCaretaker: (petId: number, c: { name: string; city: string }) =>
+    request<Pet>(`/api/pets/${petId}/caretaker`, json('POST', c)),
   pets: () => request<Pet[]>('/api/pets'),
   createPet: (p: PetInput) => request<Pet>('/api/pets', json('POST', p)),
   updatePet: (id: number, p: PetInput) => request<Pet>(`/api/pets/${id}`, json('PUT', p)),

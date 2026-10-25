@@ -420,3 +420,61 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > add a safety test: Lena can’t open Fynn, Ama can’t open Miso, and Yuki can’t open Fynn, through the screen or the backend. add it to the results file
 > check that times are right across all three time zone pairs, including Kenji and Tokyo, where the day is different
 > run all the safety tests, then commit and push
+
+---
+
+## Prompt 19: Welcome screen looks wrong
+
+> there is obviously smth wrong, isnt there? the first interface is faulty
+
+---
+
+## Prompt 20: New users can join + small design fixes
+
+> two last things, then no more features.
+>
+> 1. new users can join (no password)
+>
+> on the welcome screen, add a “New here? Create your profile” button
+> the form asks for name, city and time zone, role (owner or caretaker), and an optional photo
+> owners can then add a pet: name, species, breed, age, photo upload, the city where the pet is and its time zone
+> owners can add their caretaker with a name and city. this creates the caretaker’s profile, linked only to that pet, and it shows up on the welcome screen
+> label new people and pets “real user” instead of “sample”
+> add “delete my profile and pets” to the profile menu so testers can remove their data
+> new users follow the same rules: they only see their own pets
+>
+> 2. small design fixes
+>
+> the time pill in the hero wraps onto two lines, so make it shorter (“3:04 PM in Zurich · 7:04 PM for you”) or put it full width under the name
+> move the SAMPLE badge next to the pet’s name
+> shorten “6 things need attention” to “6 need attention” so it fits on one line
+>
+> . aLSO, I LIKE THE FACT it looks like a mobile interface, but lets maintain the laptop interface first.
+
+---
+
+## Prompt 21: Blue instead of black; only the caretaker ticks tasks off
+
+> blue instead of black
+>
+> the bottom tab bar: replace black with a deep blue that matches the palette, a gradient from 
+> #1E4FA8 to 
+> #4DA3F7. icons in white, and the active tab in a white circle with the icon in 
+> #1E4FA8
+> for consistency, replace the other black elements the same way: the active pet pill, main buttons like “Mark done”, and the profile menu. use deep blue 
+> #1E4FA8 instead of black. keep headings dark ink 
+> #111318 so text stays easy to read
+>
+> 4. only the caretaker ticks tasks off
+>
+> in the caretaker view, tasks keep their check buttons, “couldn’t do it” and add photo
+> in the owner view, remove all check buttons. the schedule becomes read only and shows what the caretaker did:
+> done: a green check with “Done by Ama · 7:42 AM in Accra (2:42 AM for you)” and the photo thumbnail if there is one
+> couldn’t do: an amber icon with the caretaker’s reason
+> overdue: a soft coral “Not done yet · 30 min late” tag
+> upcoming: gray “Due at 6:00 PM”
+> enforce it in the backend too: if an owner tries to mark a task done, the backend refuses
+> owners can still edit the schedule itself (adding or changing tasks with Set up with AI). they just can’t tick tasks
+> add a safety test: an owner trying to check in a task is blocked
+>
+> run the safety tests, then commit and push.

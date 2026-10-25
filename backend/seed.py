@@ -456,7 +456,7 @@ def ensure_accounts() -> bool:
 
 
 def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
-    from backend.users import ZONE_FLAGS
+    from backend.users import place_for_zone
     p, home, people = spec["pet"], HOMES[spec["key"]], _people()
     pet_id = conn.execute(
         "INSERT INTO pets (name, species, breed, age_years, weight, weight_unit, quirks, "
@@ -464,7 +464,7 @@ def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
         "is_sample, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         (p["name"], p["species"], p["breed"], p["age_years"], p["weight"], p["weight_unit"], p["quirks"],
          people[home["owner"]]["tz"], home["tz"], people[home["caretaker"]]["name"], home["owner"],
-         home["caretaker"], home["city"], ZONE_FLAGS.get(home["tz"], ""), sample_photo(spec["key"])),
+         home["caretaker"], home["city"], place_for_zone(home["tz"])[0], sample_photo(spec["key"])),
     ).lastrowid
     tasks = {}
     for title, ttype, time_, repeat, repeat_on, notes, dose in spec["tasks"]:

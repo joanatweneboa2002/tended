@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import { api, type PetBrief, type User } from './api'
+import { useEffect, useState, type FormEvent } from 'react'
+import { api, type ApiError, type PetBrief, type Role, type User } from './api'
 import { PawDoodle } from './Doodles'
-import { PersonAvatar, roleLabel } from './People'
+import { PersonAvatar, RealBadge, roleLabel } from './People'
+import { browserTz, ZoneSelect } from './Profile'
+import { Field, Group, Segmented } from './ui'
 
 type Person = User & { pets: PetBrief[] }
 
@@ -21,9 +23,16 @@ function petsAndPlaces(pets: PetBrief[]): string {
 export function Welcome({ onPick }: { onPick: (u: User) => void }) {
   const [people, setPeople] = useState<Person[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
 
   useEffect(() => {
-    api.users().then(setPeople, (e) => setError(`Can't reach the backend: ${(e as Error).message}. Is it running on port 8000?`))
+    api.users().then(setPeople, (e) =>
+      setError(
+        (e as ApiError).status === 404
+          ? 'The backend is running an older version of Tended. Restart it (./dev.sh) and refresh.'
+          : `Can't reach the backend: ${(e as Error).message}. Is it running on port 8000?`,
+      ),
+    )
   }, [])
 
   const section = (title: string, list: Person[]) => (
@@ -50,10 +59,18 @@ export function Welcome({ onPick }: { onPick: (u: User) => void }) {
       <div className="welcome-hero">
         <h1>Who's using Tended?</h1>
         <p>Pet owners and their pets are in different places. Pick someone to see Tended through their eyes.</p>
+        {!joining && (
+          <button className="btn primary join-btn" onClick={() => setJoining(true)}>
+            New here? Create your profile
+          </button>
+        )}
       </div>
+      {joining && <JoinForm onJoined={onPick} onCancel={() => setJoining(false)} />}
       {error && <p className="error">{error}</p>}
-      {people && section('Pet owners', people.filter((u) => u.role === 'owner'))}
-      {people && section('Caretakers', people.filter((u) => u.role === 'caretaker'))}
+      <div className="people-columns">
+        {people && section('Pet owners', people.filter((u) => u.role === 'owner'))}
+        {people && section('Caretakers', people.filter((u) => u.role === 'caretaker'))}
+      </div>
       <p className="demo-note">Demo accounts for testing, no password needed.</p>
     </div>
   )
@@ -71,9 +88,12 @@ function PersonCard({ u, onPick }: { u: Person; onPick: () => void }) {
       <span className="person-top">
         <PersonAvatar user={u} size={52} />
         <span className="person-id">
-          <b>{u.name}</b>
+          <b>
+            {u.name}
+            {!u.is_sample && <RealBadge sample={false} />}
+          </b>
           <span>
-            {u.city}, {u.country} {u.flag}
+            {[u.city, u.country].filter(Boolean).join(', ')} {u.flag}
           </span>
         </span>
         <span className="person-go" aria-hidden>
@@ -96,5 +116,71 @@ function PersonCard({ u, onPick }: { u: Person; onPick: () => void }) {
         </span>
       )}
     </button>
+  )
+}
+
+/** "New here? Create your profile": name, city and time zone, role, an optional photo. No password. */
+function JoinForm({ onJoined, onCancel }: { onJoined: (u: User) => void; onCancel: () => void }) {
+  const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [timezone, setTimezone] = useState(browserTz)
+  const [role, setRole] = useState<Role>('owner')
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      onJoined(await api.join({ name, city, timezone, role, photo }))
+    } catch (err) {
+      setError((err as Error).message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="card form join-form" onSubmit={submit}>
+      <h2>Create your profile</h2>
+      <p className="muted small">
+        No password. You'll only see your own pets. {role === 'owner' ? 'Next you can add a pet and its caretaker.' : 'An owner can add you as their caretaker.'}
+      </p>
+      <Group label="I'm a…">
+        <Segmented<Role>
+          value={role}
+          onChange={setRole}
+          label="Role"
+          options={[
+            { value: 'owner', label: 'Pet owner' },
+            { value: 'caretaker', label: 'Caretaker' },
+          ]}
+        />
+      </Group>
+      <div className="grid-2">
+        <Field label="Name *">
+          <input required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
+        </Field>
+        <Field label="City *">
+          <input required maxLength={60} value={city} onChange={(e) => setCity(e.target.value)} placeholder="Where are you?" />
+        </Field>
+        <Field label="Time zone">
+          <ZoneSelect value={timezone} onChange={setTimezone} />
+        </Field>
+        <Field label="Photo (optional)">
+          <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        </Field>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <div className="form-actions">
+        <button className="btn primary" disabled={saving}>
+          {saving ? 'Creating…' : 'Create profile'}
+        </button>
+        <button type="button" className="btn ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }

@@ -58,9 +58,12 @@ export function AlertStack({ alerts, pet, role, emptyText }: { alerts: AlertItem
         </span>
         <span className="alert-bar-text">
           <b>
-            {n} thing{n === 1 ? '' : 's'} need{n === 1 ? 's' : ''} attention
+            {n} need{n === 1 ? 's' : ''} attention
           </b>
-          <span className="alert-bar-top">{top.headline}</span>
+          <span className="alert-bar-top">
+            {urgent > 0 && <span className="urgent-inline">{urgent} urgent · </span>}
+            {top.headline}
+          </span>
         </span>
         {urgent > 0 && <span className="lvl-pill lvl-urgent">{urgent} urgent</span>}
         <span className="chev" aria-hidden>

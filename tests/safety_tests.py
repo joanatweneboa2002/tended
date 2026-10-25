@@ -338,6 +338,39 @@ def test_privacy(c):
     return out
 
 
+def test_only_caretaker_ticks(c):
+    """Owners see what was done and edit the schedule; only the caretaker ticks tasks off."""
+    out = []
+    pets = fresh(c)  # acting as Maya, Miso's owner
+    miso = pets["Miso"]["id"]
+    today = c.get(f"/api/pets/{miso}/dashboard", params={"role": "owner"}).json()["today"]
+    tasks = c.get(f"/api/pets/{miso}/tasks").json()
+    dinner = next(t for t in tasks if t["title"] == "Dinner")
+    tick = {"task_id": dinner["id"], "slot_date": today, "status": "done"}
+    as_owner = c.post("/api/checkins", data=tick)
+    as_owner_faked = c.post("/api/checkins", data={**tick, "role": "caretaker"})
+    could_not = c.post("/api/checkins", data={**tick, "status": "could_not", "reason": "test"})
+    check(out, "owner trying to mark a task done is blocked (403)", as_owner.status_code == 403,
+          f"HTTP {as_owner.status_code}: {as_owner.json().get('detail', '')}")
+    check(out, "…also when the request claims to be the caretaker, or says “couldn't do it”",
+          as_owner_faked.status_code == 403 and could_not.status_code == 403,
+          f"claimed caretaker: HTTP {as_owner_faked.status_code}, couldn't do: HTTP {could_not.status_code}")
+    act_as(c, "lena")
+    ok = c.post("/api/checkins", data=tick)
+    check(out, "the caretaker (Lena) can still tick it off", ok.status_code == 201, f"HTTP {ok.status_code}")
+    act_as(c, "maya")
+    undo = c.delete(f"/api/checkins/{ok.json()['id']}")
+    done = c.get(f"/api/pets/{miso}/day", params={"date": today}).json()["tasks"]
+    still = any(cc["status"] == "done" for t in done if t["id"] == dinner["id"] for cc in t["checkins"])
+    check(out, "owner can't undo the caretaker's tick either", undo.status_code == 403 and still, f"HTTP {undo.status_code}")
+    edit = c.put(f"/api/tasks/{dinner['id']}", json={**{k: dinner[k] for k in ("title", "type", "repeat", "repeat_on", "notes", "dose")}, "time": "18:30"})
+    add = c.post(f"/api/pets/{miso}/tasks", json={"title": "Brush", "type": "other", "time": "21:00", "repeat": "daily",
+                                                 "repeat_on": None, "notes": "", "dose": None})
+    check(out, "owner can still edit the schedule (change a time, add a task)", edit.status_code == 200 and add.status_code == 201,
+          f"edit HTTP {edit.status_code}, add HTTP {add.status_code}")
+    return out
+
+
 ACCESS_CASES = [("lena", "Fynn"), ("ama", "Miso"), ("yuki", "Fynn")]
 
 
@@ -396,6 +429,38 @@ def test_access_control(c):
         r = c.get(f"/api/pets/{ids[mine]}/dashboard", params={"role": role})
         check(out, f"…while {user.title()} can still open {mine}", r.status_code == 200, f"HTTP {r.status_code}")
     check(out, "no agent read a forbidden pet (model never called)", len(never.calls) == 0, f"model calls = {len(never.calls)}")
+
+    # People who join follow the same rules.
+    ada = c.post("/api/users", data={"name": "Ada", "city": "Lisbon", "timezone": "Europe/Lisbon", "role": "owner"}).json()
+    act_as(c, ada["id"])
+    first = c.get("/api/pets").json()
+    bolt = c.post("/api/pets", json={"name": "Bolt", "species": "Dog", "breed": "", "age_years": 3, "weight": None,
+                                     "weight_unit": "kg", "quirks": "", "home_timezone": "Asia/Kolkata",
+                                     "home_city": "Mumbai", "caretaker_id": None, "caretaker_name": ""}).json()
+    bolt = c.post(f"/api/pets/{bolt['id']}/caretaker", json={"name": "Ravi", "city": "Mumbai"}).json()
+    steal = c.put(f"/api/pets/{bolt['id']}", json={**{k: bolt[k] for k in ("name", "species", "breed", "age_years", "weight",
+                  "weight_unit", "quirks", "home_timezone", "home_city")}, "caretaker_id": "lena", "caretaker_name": ""})
+    ada_miso = c.get(f"/api/pets/{ids['Miso']}").status_code
+    act_as(c, bolt["caretaker_id"])
+    ravi = [p["name"] for p in c.get("/api/pets").json()]
+    ravi_fynn = c.get(f"/api/pets/{ids['Fynn']}/messages").status_code
+    act_as(c, "lena")
+    lena_bolt = c.get(f"/api/pets/{bolt['id']}/dashboard", params={"role": "caretaker"}).status_code
+    check(out, "a new owner starts with no pets and can't open Miso", first == [] and ada_miso == 403,
+          f"pets {first}, Miso HTTP {ada_miso}")
+    check(out, "their new caretaker sees only that pet, and no one else's",
+          ravi == ["Bolt"] and ravi_fynn == 403 and lena_bolt == 403,
+          f"Ravi sees {ravi}, Ravi → Fynn HTTP {ravi_fynn}, Lena → Bolt HTTP {lena_bolt}")
+    check(out, "an owner can't hand their pet to someone else's caretaker", steal.status_code == 422,
+          f"HTTP {steal.status_code}")
+    act_as(c, "maya")
+    demo_delete = c.delete("/api/me").status_code
+    act_as(c, ada["id"])
+    gone = c.delete("/api/me").status_code
+    left = [u["name"] for u in c.get("/api/users").json() if not u["is_sample"]]
+    check(out, "“Delete my profile and pets” removes the tester, their pets and their caretaker (demo accounts stay)",
+          gone == 204 and left == [] and c.get("/api/pets").status_code == 401 and demo_delete == 403,
+          f"delete HTTP {gone}, real users left {left}, demo delete HTTP {demo_delete}")
 
     act_as(c, "lena")
     fake_owner = c.get(f"/api/pets/{ids['Miso']}/dashboard", params={"role": "owner"})
@@ -484,6 +549,7 @@ TESTS = [
     ("Step limit", test_step_limit),
     ("Token budget", test_token_budget),
     ("Privacy", test_privacy),
+    ("Only the caretaker ticks", test_only_caretaker_ticks),
     ("Access control", test_access_control),
     ("Time zones", test_time_zones),
 ]
@@ -515,7 +581,7 @@ def main() -> int:
     md = ["# Tended safety test results\n",
           f"- **Date:** {started:%Y-%m-%d %H:%M %Z}",
           f"- **Mode:** {mode}" + (f" (provider: {PROVIDER.name}, model: `{PROVIDER.model}`)" if LIVE else ""),
-          f"- **Result:** {passed}/{len(rows)} tests passed (7 defenses, access control, time zones)",
+          f"- **Result:** {passed}/{len(rows)} tests passed (7 defenses, only the caretaker ticks, access control, time zones)",
           "- **How to run:** `.venv/bin/python tests/safety_tests.py` (add `--offline` to skip real model calls)",
           "- Every test runs on a throwaway copy of the database with fresh sample data. \"code\" checks use a fake "
           "model that misbehaves on purpose; \"live\" checks use the real model.\n",

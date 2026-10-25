@@ -3,6 +3,7 @@ import {
   addDays,
   api,
   formatDate,
+  formatTime,
   repeatLabel,
   TASK_TYPES,
   WEEKDAYS,
@@ -15,7 +16,7 @@ import {
   type TaskInput,
 } from './api'
 import { Field, Segmented, When } from './ui'
-import { stampFor, todayIn, wallForViewer } from './time'
+import { stampFor, todayIn, wallForViewer, wallToDate } from './time'
 import { SetupAgent } from './SetupAgent'
 import { PawDoodle } from './Doodles'
 import { Icon, IconCircle, TASK_LOOK } from './Icons'
@@ -244,6 +245,31 @@ const TYPE_WORD: Record<string, string> = { feed: 'Food', walk: 'Walk', meds: 'M
 /** One timeline row for Home: home time on the left (the owner's own time small
  *  underneath), a colored dot for the task type, the task, a big round tick. */
 export function TodoRow({ task, date, pet, role, onSaved }: { task: DayTask; date: string; pet: Pet; role: Role; onSaved: () => void }) {
+  if (role === 'owner') return <OwnerTodoRow task={task} date={date} pet={pet} />
+  return <CaretakerTodoRow task={task} date={date} pet={pet} onSaved={onSaved} />
+}
+
+/** Owner: read only. What the caretaker did, or when it's due. */
+function OwnerTodoRow({ task, date, pet }: { task: DayTask; date: string; pet: Pet }) {
+  const when = wallForViewer(date, task.time, pet, 'owner')
+  const done = task.checkins.some((c) => c.status === 'done')
+  return (
+    <li className={`tl-row tl-readonly type-${task.type} ${done ? 'is-done' : ''}`}>
+      <p className="tl-time">
+        {when.main}
+        {when.yours && <small>{when.yours}</small>}
+      </p>
+      <span className="tl-dot" aria-hidden />
+      <div className="tl-main">
+        <p className="tl-title">{task.title}</p>
+        <TaskStatus task={task} date={date} pet={pet} />
+      </div>
+    </li>
+  )
+}
+
+function CaretakerTodoRow({ task, date, pet, onSaved }: { task: DayTask; date: string; pet: Pet; onSaved: () => void }) {
+  const role: Role = 'caretaker'
   const t = useTaskTick(task, date, role, onSaved)
   const when = wallForViewer(date, task.time, pet, role)
   return (
@@ -279,6 +305,91 @@ function TaskCard({
   role: Role
   onSaved: () => void
 }) {
+  if (role === 'owner') return <OwnerTaskCard task={task} date={date} pet={pet} />
+  return <CaretakerTaskCard task={task} date={date} pet={pet} onSaved={onSaved} />
+}
+
+/** "30 min late", "2 h 10 min late", "1 day late". */
+export function lateText(ms: number): string {
+  const min = Math.floor(ms / 60000)
+  if (min < 60) return `${Math.max(1, min)} min late`
+  if (min < 24 * 60) return `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''} late`
+  const days = Math.floor(min / (24 * 60))
+  return `${days} day${days === 1 ? '' : 's'} late`
+}
+
+/** Owner view of a task: done (by whom, when, photo), couldn't do (why), overdue, or upcoming. */
+export function TaskStatus({ task, date, pet }: { task: DayTask; date: string; pet: Pet }) {
+  const done = task.checkins.find((c) => c.status === 'done')
+  const couldNot = !done && task.checkins.find((c) => c.status === 'could_not')
+  const city = pet.home_city || `${pet.name}'s home`
+  if (done) {
+    const t = stampFor(done.created_at, pet, 'owner', false)
+    return (
+      <div className="status status-done">
+        <span className="status-icon" aria-hidden>
+          <Icon name="check" size={14} />
+        </span>
+        <div className="status-text">
+          <p>
+            Done by {done.caretaker_name || pet.caretaker_name || 'the caretaker'} · {t.main} in {city}
+            {t.yours && <span className="your-time"> ({t.yours} for you)</span>}
+          </p>
+          {done.note && <p className="status-note">“{done.note}”</p>}
+        </div>
+        {done.photo_url && (
+          <a href={done.photo_url} target="_blank" rel="noreferrer">
+            <img className="status-photo" src={done.photo_url} alt={`${task.title} photo`} />
+          </a>
+        )}
+      </div>
+    )
+  }
+  if (couldNot) {
+    return (
+      <div className="status status-couldnt">
+        <span className="status-icon" aria-hidden>
+          !
+        </span>
+        <p className="status-text">
+          <b>Couldn't do it</b> · {couldNot.reason}
+        </p>
+      </div>
+    )
+  }
+  const late = Date.now() - wallToDate(date, task.time, pet.home_timezone).getTime()
+  return late > 0 ? (
+    <span className="status-tag late">Not done yet · {lateText(late)}</span>
+  ) : (
+    <span className="status-tag upcoming">Due at {formatTime(task.time)}</span>
+  )
+}
+
+/** Owner: a read-only task card. Owners change the schedule (Edit / Set up with AI), not the check-ins. */
+function OwnerTaskCard({ task, date, pet }: { task: DayTask; date: string; pet: Pet }) {
+  const look = TASK_LOOK[task.type]
+  const done = task.checkins.some((c) => c.status === 'done')
+  return (
+    <li className={`task card task-readonly ${done ? 'is-done' : ''} ${task.type === 'meds' ? 'is-meds' : ''}`}>
+      <IconCircle name={look.icon} tone={look.tone} size={40} />
+      <div className="task-main">
+        <div className="task-head">
+          <span className="task-when">
+            <WallTime day={date} hhmm={task.time} pet={pet} role="owner" />
+          </span>
+          <h3>{task.title}</h3>
+          <TypeTag type={task.type} />
+        </div>
+        {task.dose && <p className="dose">Dose: {task.dose}</p>}
+        {task.notes && <p className="notes">{task.notes}</p>}
+        <TaskStatus task={task} date={date} pet={pet} />
+      </div>
+    </li>
+  )
+}
+
+function CaretakerTaskCard({ task, date, pet, onSaved }: { task: DayTask; date: string; pet: Pet; onSaved: () => void }) {
+  const role: Role = 'caretaker'
   const [mode, setMode] = useState<CheckinStatus | null>(null)
   const t = useTaskTick(task, date, role, onSaved)
   const { done, bounce, setBounce, confirmMeds } = t

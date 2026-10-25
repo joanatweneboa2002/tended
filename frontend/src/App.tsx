@@ -8,7 +8,7 @@ import { Health } from './Health'
 import { Home, type Tab } from './Home'
 import { Messages } from './Messages'
 import { PetAvatar } from './PetAvatar'
-import { ProfileMenu } from './People'
+import { ProfileMenu, RealBadge } from './People'
 import { Profile, ProfileForm } from './Profile'
 import { Schedule } from './Schedule'
 import { Welcome } from './Welcome'
@@ -155,7 +155,7 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
           <div className="topbar-right">
             {role === 'owner' && pet && <AgentActivity pet={pet} open={activityOpen} onOpenChange={setActivityOpen} />}
             <EmergencyButton petId={petId} />
-            <ProfileMenu user={user} onAddPet={role === 'owner' ? () => setAdding(true) : undefined} onSwitch={onSwitch} />
+            <ProfileMenu user={user} onAddPet={role === 'owner' ? () => setAdding(true) : undefined} onSwitch={onSwitch} onDeleted={onSwitch} />
           </div>
         </div>
 
@@ -192,7 +192,7 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
               <h1>{PAGE_TITLE[tab]}</h1>
               <p>
                 <b>{pet.name}</b> {role === 'owner' ? 'is' : 'is with you'} in {pet.home_city || 'their home'} {pet.home_flag}
-                {pet.is_sample && <span className="badge sample">Sample</span>}
+                <RealBadge sample={pet.is_sample} />
               </p>
               <p className="small">
                 {role === 'owner'
@@ -270,6 +270,12 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
 
 
       <nav className="bottom-nav" aria-label="Sections">
+        <div className="nav-brand" aria-hidden>
+          <span className="brand-mark">
+            <PawDoodle size={20} />
+          </span>
+          <span>Tended</span>
+        </div>
         {TABS.map((t) => (
           <button
             key={t.id}
