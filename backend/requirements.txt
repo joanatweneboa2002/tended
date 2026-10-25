@@ -1,0 +1,6 @@
+fastapi>=0.115
+uvicorn[standard]
+python-dotenv
+python-multipart
+openai>=1.60
+tzdata  # time zone data for zoneinfo on Windows

@@ -1,0 +1,36 @@
+# Secrets: only .env.example (key names, no values) is committed
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+frontend/dist/
+
+# Local data: the database is rebuilt with the sample pets on first run,
+# and uploaded photos are personal
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/photos/*
+!data/photos/.gitkeep
+
+# Personal screenshots of my desktop (not part of the app)
+Screenshots/
+
+# Server logs and the test-only token log (the .md reports in logs/ are kept)
+logs/*.log
+logs/test_token_log.csv
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+.claude/settings.local.json

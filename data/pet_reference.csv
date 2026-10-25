@@ -1,0 +1,89 @@
+id,species,category,topic,info,action,keywords,source
+R1,dog,normal_range,Heart rate,About 60–140 beats per minute at rest for adult dogs; small breeds and puppies run higher (up to about 180).,info,,Merck Veterinary Manual
+R2,dog,normal_range,Breathing rate,About 10–30 breaths per minute at rest.,info,,Merck Veterinary Manual
+R3,dog,normal_range,Temperature,"About 101–102.5°F (38.3–39.2°C), taken rectally.",info,,Merck Veterinary Manual
+R4,dog,toxic_food,Chocolate,"Contains theobromine and caffeine; dark and baking chocolate are the most dangerous. Can cause vomiting, a racing heart, tremors and seizures.",emergency,chocolate;cocoa;brownie,ASPCA Animal Poison Control
+R5,dog,toxic_food,Xylitol,"A sweetener in sugar-free gum, candy, some peanut butters and baked goods. Can cause a sudden drop in blood sugar and liver failure.",emergency,xylitol;sugar-free gum;sugar free gum;sugarless gum,ASPCA Animal Poison Control
+R6,dog,toxic_food,Grapes and raisins,"Can cause kidney failure, even in small amounts.",emergency,grape;grapes;raisin;raisins,ASPCA Animal Poison Control
+R7,dog,toxic_food,"Onions, garlic, chives and leeks","Damage red blood cells in every form (raw, cooked, powdered).",call_vet_soon,onion;onions;garlic;chives;leek;leeks,ASPCA Animal Poison Control
+R8,dog,toxic_food,Macadamia nuts,"Can cause weakness, vomiting, tremors and a high temperature.",call_vet_soon,macadamia,ASPCA Animal Poison Control
+R9,dog,toxic_food,Alcohol and raw yeast dough,"Cause vomiting, wobbliness, low blood sugar and breathing problems; dough can also expand in the stomach.",emergency,alcohol;beer;wine;vodka;bread dough;raw dough;yeast dough,ASPCA Animal Poison Control
+R10,dog,toxic_plant,Sago palm,"All parts are toxic, especially the seeds; can cause liver failure.",emergency,sago palm;sago,ASPCA Animal Poison Control
+R11,dog,toxic_other,"Human medicines, antifreeze and rat bait","Pain relievers (ibuprofen, naproxen, acetaminophen), antifreeze and rodent poison can be deadly.",emergency,ibuprofen;advil;naproxen;aleve;acetaminophen;tylenol;antifreeze;rat poison;rat bait;mouse poison,ASPCA Animal Poison Control
+R12,dog,red_flag,Swollen belly and trying to vomit,"A tight, swollen belly with retching that brings nothing up can be bloat (GDV), which is life-threatening within hours.",emergency,,Merck Veterinary Manual
+R13,dog,red_flag,Trouble breathing or pale or blue gums,"Struggling to breathe, or gums that are pale, white or blue, needs a vet now.",emergency,,Merck Veterinary Manual
+R14,dog,red_flag,Seizure or collapse,"Any seizure, fainting or sudden collapse needs a vet now.",emergency,,Merck Veterinary Manual
+R15,dog,red_flag,Heatstroke,"Heavy panting, drooling, weakness or wobbliness after heat or exercise. Move to shade and call a vet now.",emergency,,Merck Veterinary Manual
+R16,dog,red_flag,Repeated vomiting or blood in vomit or stool,"Vomiting several times in a day, or any blood in vomit or stool, needs a vet now.",emergency,,Merck Veterinary Manual
+R17,cat,normal_range,Heart rate,About 140–220 beats per minute at rest.,info,,Merck Veterinary Manual
+R18,cat,normal_range,Breathing rate,About 20–30 breaths per minute at rest. Cats should not breathe with their mouth open.,info,,Merck Veterinary Manual
+R19,cat,normal_range,Temperature,About 100.5–102.5°F (38.1–39.2°C).,info,,Merck Veterinary Manual
+R20,cat,care_basics,Diet,Cats are obligate carnivores and need a meat-based diet; sudden diet changes can upset their stomach.,info,,Merck Veterinary Manual
+R21,cat,toxic_plant,Lilies,"True lilies and daylilies are extremely toxic to cats. A leaf, a petal, pollen or the vase water can cause kidney failure. Go to a vet now even if the cat seems fine.",emergency,lily;lilies;daylily;daylilies;lily leaf;lily pollen,ASPCA Animal Poison Control
+R22,cat,toxic_food,"Onions, garlic, chives and leeks","Damage red blood cells in every form (raw, cooked, powdered).",call_vet_soon,onion;onions;garlic;chives;leek;leeks,ASPCA Animal Poison Control
+R23,cat,toxic_food,Chocolate and caffeine,"Can cause vomiting, a racing heart, tremors and seizures.",emergency,chocolate;cocoa;coffee;caffeine,ASPCA Animal Poison Control
+R24,cat,toxic_food,Grapes and raisins,Best avoided; linked to kidney damage in pets.,call_vet_soon,grape;grapes;raisin;raisins,ASPCA Animal Poison Control
+R25,cat,toxic_food,Alcohol and raw yeast dough,"Cause vomiting, wobbliness and breathing problems.",emergency,alcohol;beer;wine;bread dough;raw dough,ASPCA Animal Poison Control
+R26,cat,toxic_other,Acetaminophen (Tylenol) and dog flea products,Even one acetaminophen tablet can kill a cat; permethrin in dog flea treatments causes tremors and seizures in cats.,emergency,acetaminophen;tylenol;permethrin;dog flea,ASPCA Animal Poison Control
+R27,cat,toxic_other,Concentrated essential oils,"Oils like tea tree, eucalyptus and peppermint can be harmful to cats if licked or absorbed.",call_vet_soon,essential oil;tea tree;eucalyptus oil,ASPCA Animal Poison Control
+R28,cat,red_flag,Not eating for over 24 hours,A cat that has eaten nothing for a day needs a vet; fasting cats can develop serious liver disease.,emergency,,Merck Veterinary Manual
+R29,cat,red_flag,Straining to pee or no urine,"Straining in the litter box with little or no urine, especially in a male cat, can be a blocked bladder and is an emergency.",emergency,,Merck Veterinary Manual
+R30,cat,red_flag,Open-mouth breathing or trouble breathing,Breathing with the mouth open or working hard to breathe needs a vet now.,emergency,,Merck Veterinary Manual
+R31,cat,red_flag,Sudden back-leg weakness or paralysis,"Sudden back-leg weakness, pain or cold legs can be a blood clot and needs a vet now.",emergency,,Merck Veterinary Manual
+R32,cat,red_flag,Seizure or collapse,"Any seizure, fainting or sudden collapse needs a vet now.",emergency,,Merck Veterinary Manual
+R33,rabbit,normal_range,Heart rate,About 130–325 beats per minute.,info,,Merck Veterinary Manual
+R34,rabbit,normal_range,Breathing rate,About 30–60 breaths per minute. Rabbits breathe through their nose.,info,,Merck Veterinary Manual
+R35,rabbit,normal_range,Temperature,About 101.3–104°F (38.5–40°C).,info,,Merck Veterinary Manual
+R36,rabbit,care_basics,Diet,"Rabbits are herbivores. Most of the diet should be unlimited grass hay, plus leafy greens and a small amount of pellets. No meat.",info,,Merck Veterinary Manual
+R37,rabbit,toxic_food,Avocado,Toxic to rabbits; can cause breathing problems and heart damage.,emergency,avocado;guacamole,ASPCA Animal Poison Control
+R38,rabbit,toxic_food,Chocolate,"Toxic to pets, including rabbits.",emergency,chocolate;cocoa,ASPCA Animal Poison Control
+R39,rabbit,toxic_food,Onions and garlic,Damage red blood cells.,call_vet_soon,onion;onions;garlic;leek;chives,ASPCA Animal Poison Control
+R40,rabbit,toxic_plant,"Rhubarb, tomato and potato leaves",The leaves and stems are toxic; only feed safe leafy greens.,call_vet_soon,rhubarb;tomato leaves;potato leaves;tomato plant,ASPCA Animal Poison Control
+R41,rabbit,red_flag,No poop or not eating for 12 hours,A rabbit that stops eating or pooping for 12 hours may have gut stasis and needs a vet now.,emergency,,Merck Veterinary Manual
+R42,rabbit,red_flag,Mouth breathing or trouble breathing,Rabbits breathe through the nose; open-mouth breathing is an emergency.,emergency,,Merck Veterinary Manual
+R43,rabbit,red_flag,Head tilt or loss of balance,"A sudden head tilt, rolling or circling needs a vet the same day.",call_vet_soon,,Merck Veterinary Manual
+R44,rabbit,red_flag,Flystrike,"Maggots or flies around the bottom, especially in warm weather, are an emergency.",emergency,,Merck Veterinary Manual
+R45,rabbit,red_flag,Overheating,"Rabbits overheat easily. Panting, drooling or floppiness in warm weather needs a vet now.",emergency,,Merck Veterinary Manual
+R46,rabbit,red_flag,Seizure or collapse,Any seizure or collapse needs a vet now.,emergency,,Merck Veterinary Manual
+R47,bird,normal_range,Heart rate,"Very fast and varies with size: hundreds of beats per minute in small birds like budgies, slower in large parrots.",info,,Merck Veterinary Manual
+R48,bird,normal_range,Breathing rate,"Varies with size: about 60–75 breaths per minute in budgies, about 15–45 in large parrots, at rest.",info,,Merck Veterinary Manual
+R49,bird,normal_range,Temperature,About 104–108°F (40–42°C).,info,,Merck Veterinary Manual
+R50,bird,toxic_food,Avocado,Very toxic to birds; can cause breathing trouble and sudden death.,emergency,avocado;guacamole,ASPCA Animal Poison Control
+R51,bird,toxic_food,Chocolate and caffeine,"Can cause vomiting, a racing heart, seizures and death.",emergency,chocolate;cocoa;coffee;caffeine;tea,ASPCA Animal Poison Control
+R52,bird,toxic_food,Alcohol,Even small amounts are dangerous for birds.,emergency,alcohol;beer;wine,ASPCA Animal Poison Control
+R53,bird,toxic_food,Salty snacks,"Too much salt can cause thirst, kidney damage and death in small birds.",call_vet_soon,chips;crisps;salt;pretzel,ASPCA Animal Poison Control
+R54,bird,toxic_food,Onions and garlic,Damage red blood cells.,call_vet_soon,onion;onions;garlic,ASPCA Animal Poison Control
+R55,bird,toxic_other,Non-stick pan fumes,Overheated non-stick (PTFE/Teflon) cookware releases fumes that can kill a bird in minutes. Get the bird to fresh air.,emergency,teflon;non-stick;nonstick;ptfe,Merck Veterinary Manual
+R56,bird,red_flag,Fluffed up on the cage floor,"Birds hide illness. A bird sitting fluffed up, sleepy or on the floor of the cage is seriously ill.",emergency,,Merck Veterinary Manual
+R57,bird,red_flag,Tail bobbing or open-mouth breathing,Breathing with the tail bobbing or the beak open needs a vet now.,emergency,,Merck Veterinary Manual
+R58,bird,red_flag,Bleeding,"Birds have little blood to lose; any bleeding, including a broken blood feather, needs a vet now.",emergency,,Merck Veterinary Manual
+R59,bird,red_flag,Straining or sitting low (possible egg binding),"A female straining, sitting low or wide-legged may be egg-bound and needs a vet now.",emergency,,Merck Veterinary Manual
+R60,bird,red_flag,Not eating or sudden change in droppings,"A bird that stops eating, or whose droppings change suddenly, needs a vet soon.",call_vet_soon,,Merck Veterinary Manual
+R61,guinea pig,normal_range,Heart rate,About 230–380 beats per minute.,info,,Merck Veterinary Manual
+R62,guinea pig,normal_range,Breathing rate,About 40–100 breaths per minute.,info,,Merck Veterinary Manual
+R63,guinea pig,normal_range,Temperature,About 99–103°F (37.2–39.5°C).,info,,Merck Veterinary Manual
+R64,guinea pig,care_basics,Vitamin C,"Guinea pigs can't make vitamin C and need it every day from food (e.g. bell pepper, leafy greens) or a supplement.",info,,Merck Veterinary Manual
+R65,guinea pig,care_basics,Diet,"Herbivores: unlimited grass hay, fresh greens and guinea pig pellets. No meat.",info,,Merck Veterinary Manual
+R66,guinea pig,toxic_food,Chocolate,Toxic to pets.,emergency,chocolate;cocoa,ASPCA Animal Poison Control
+R67,guinea pig,toxic_food,Onions and garlic,Damage red blood cells.,call_vet_soon,onion;onions;garlic;chives;leek,ASPCA Animal Poison Control
+R68,guinea pig,toxic_food,Avocado,Best avoided; toxic to several small pets.,call_vet_soon,avocado;guacamole,ASPCA Animal Poison Control
+R69,guinea pig,toxic_plant,"Rhubarb, tomato and potato leaves",The leaves and stems are toxic.,call_vet_soon,rhubarb;tomato leaves;potato leaves;tomato plant,ASPCA Animal Poison Control
+R70,guinea pig,red_flag,Not eating or no droppings,A guinea pig that stops eating or pooping needs a vet the same day; they get sick fast.,emergency,,Merck Veterinary Manual
+R71,guinea pig,red_flag,Trouble breathing,"Noisy, fast or open-mouth breathing, or crusty eyes and nose with breathing changes, needs a vet now.",emergency,,Merck Veterinary Manual
+R72,guinea pig,red_flag,"Can't walk, swollen joints or bleeding gums",Can be a sign of vitamin C deficiency; needs a vet soon.,call_vet_soon,,Merck Veterinary Manual
+R73,guinea pig,red_flag,Drooling or weight loss,Often a tooth problem; needs a vet soon.,call_vet_soon,,Merck Veterinary Manual
+R74,guinea pig,red_flag,Seizure or collapse,Any seizure or collapse needs a vet now.,emergency,,Merck Veterinary Manual
+R75,reptile,normal_range,Heart rate,"Varies a lot with species, size and body temperature; there is no single normal number.",info,,Merck Veterinary Manual
+R76,reptile,normal_range,Breathing rate,"Varies with species and temperature; breathing should be quiet, through the nostrils, with the mouth closed.",info,,Merck Veterinary Manual
+R77,reptile,normal_range,Temperature,Reptiles take their body temperature from their surroundings. Keep the enclosure's warm and cool zones at the species' recommended range.,info,,Merck Veterinary Manual
+R78,reptile,care_basics,Heat and UV light,Many reptiles need a heat gradient and UVB light every day; a broken heat lamp or UV bulb is urgent to fix.,info,,Merck Veterinary Manual
+R79,reptile,toxic_food,Fireflies (lightning bugs),Highly toxic to lizards such as bearded dragons; even one can be fatal.,emergency,firefly;fireflies;lightning bug;lightning bugs,Merck Veterinary Manual
+R80,reptile,toxic_food,Avocado,Toxic to many pets; do not feed.,call_vet_soon,avocado;guacamole,ASPCA Animal Poison Control
+R81,reptile,toxic_food,Rhubarb,High in oxalates; do not feed.,call_vet_soon,rhubarb,Merck Veterinary Manual
+R82,reptile,toxic_food,Wild-caught insects,May carry pesticides or parasites; feed bought feeder insects only.,avoid,wild bugs;caught a bug;wild insects,Merck Veterinary Manual
+R83,reptile,red_flag,Open-mouth breathing or bubbles from nose,"Wheezing, open-mouth breathing or bubbles from the nose or mouth needs a vet soon.",call_vet_soon,,Merck Veterinary Manual
+R84,reptile,red_flag,Tissue coming out of the vent (prolapse),Pink or red tissue sticking out of the vent is an emergency. Keep it moist and call a vet now.,emergency,,Merck Veterinary Manual
+R85,reptile,red_flag,Burns,"Burns from a heat lamp, rock or bulb need a vet.",call_vet_soon,,Merck Veterinary Manual
+R86,reptile,red_flag,"Limp, unresponsive or unable to move","A reptile that is floppy, unresponsive or can't lift itself in a warm enclosure needs a vet now.",emergency,,Merck Veterinary Manual
+R87,reptile,red_flag,"Swollen jaw or legs, soft or bent bones",Can be metabolic bone disease (often from too little UVB or calcium); needs a vet soon.,call_vet_soon,,Merck Veterinary Manual
+R88,reptile,red_flag,Seizure or bleeding,Any seizure or bleeding needs a vet now.,emergency,,Merck Veterinary Manual
