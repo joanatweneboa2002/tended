@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
@@ -37,7 +37,6 @@ from backend.common import (
     day_tasks,
     get_pet_row,
     parse_day,
-    person_name,
     pet_out,
     read_photo,
     remove_photo,
@@ -48,8 +47,9 @@ from backend.common import (
 from backend.config import LOADED_ENV_FILES, PHOTOS_DIR, AIUnavailable, ai_provider, ai_status_line
 from backend.db import connect, init_db, task_runs_on
 from backend.schemas import TaskIn, insert_task
-from backend.seed import ensure_sample_pets, ensure_sample_photos, reset_sample_data, seed_if_empty
+from backend.seed import ensure_accounts, ensure_sample_pets, ensure_sample_photos, reset_sample_data, seed_if_empty
 from backend.token_log import ensure_token_log
+from backend.users import ZONE_FLAGS, Me, can_see, guard, require_pet, user_out, visible_pets_sql
 
 
 def _ai_status() -> dict:
@@ -66,13 +66,15 @@ async def lifespan(_app: FastAPI):
     print(ai_status_line(), flush=True)
     init_db()
     seed_if_empty()
+    ensure_accounts()
     ensure_sample_pets()
     ensure_sample_photos()
     ensure_token_log()
     yield
 
 
-app = FastAPI(title="Tended API", lifespan=lifespan)
+# `guard` runs before every route: who is asking, and may they see this pet? (backend/users.py)
+app = FastAPI(title="Tended API", lifespan=lifespan, dependencies=[Depends(guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -105,11 +107,12 @@ class PetIn(BaseModel):
     weight: float | None = Field(default=None, gt=0, le=1000)
     weight_unit: Literal["lb", "kg"] = "lb"
     quirks: str = ""
-    owner_timezone: str = "America/New_York"
     home_timezone: str = "America/New_York"
-    caretaker_name: str = Field(default="", max_length=80)
+    home_city: str = Field(default="", max_length=80)
+    caretaker_id: str | None = None  # a demo caretaker; they'll see the pet
+    caretaker_name: str = Field(default="", max_length=80)  # used when no caretaker account is picked
 
-    @field_validator("owner_timezone", "home_timezone")
+    @field_validator("home_timezone")
     @classmethod
     def valid_timezone(cls, v: str) -> str:
         try:
@@ -156,24 +159,70 @@ def status() -> dict:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/pets")
-def list_pets() -> list[dict]:
+# ---------------------------------------------------------------------------
+# People (demo accounts, no passwords)
+# ---------------------------------------------------------------------------
+
+
+def _pet_brief(p: sqlite3.Row) -> dict:
+    out = pet_out(p)
+    return {k: out[k] for k in ("id", "name", "species", "photo_url", "home_city", "home_flag", "home_timezone",
+                                "owner_name", "caretaker_name")}
+
+
+@app.get("/api/users")
+def list_users() -> list[dict]:
+    """Everyone on the "Who's using Tended?" screen, with their pets and where those pets are."""
     with connect() as conn:
-        rows = conn.execute("SELECT * FROM pets ORDER BY is_sample DESC, id").fetchall()
+        users = conn.execute("SELECT * FROM users ORDER BY role DESC, rowid").fetchall()
+        pets = conn.execute("SELECT * FROM pets ORDER BY is_sample DESC, id").fetchall()
+    return [{**user_out(u), "pets": [_pet_brief(p) for p in pets if can_see(u, p)]} for u in users]
+
+
+@app.get("/api/me")
+def whoami(user=Me) -> dict:
+    return user_out(user)
+
+
+def _owner_only(user) -> None:
+    if user["role"] != "owner":
+        raise HTTPException(403, "Only the pet's owner can change its profile.")
+
+
+def _pet_fields(conn: sqlite3.Connection, body: PetIn, owner) -> dict:
+    """Profile fields plus who looks after the pet, checked against the demo accounts."""
+    data = body.model_dump()
+    if body.caretaker_id:
+        carer = conn.execute("SELECT * FROM users WHERE id = ? AND role = 'caretaker'", (body.caretaker_id,)).fetchone()
+        if carer is None:
+            raise HTTPException(422, f"No caretaker called '{body.caretaker_id}'.")
+        data["caretaker_name"] = carer["name"]
+    data["owner_timezone"] = owner["timezone"]
+    data["home_flag"] = ZONE_FLAGS.get(body.home_timezone, "")
+    return data
+
+
+@app.get("/api/pets")
+def list_pets(user=Me) -> list[dict]:
+    """Only the pets this person may see."""
+    where, args = visible_pets_sql(user)
+    with connect() as conn:
+        rows = conn.execute(f"SELECT * FROM pets WHERE {where} ORDER BY is_sample DESC, id", args).fetchall()
     return [pet_out(r) for r in rows]
 
 
 @app.post("/api/pets", status_code=201)
-def create_pet(body: PetIn) -> dict:
+def create_pet(body: PetIn, user=Me) -> dict:
+    _owner_only(user)
     with connect() as conn:
         pet_id = conn.execute(
             "INSERT INTO pets (name, species, breed, age_years, weight, weight_unit, quirks, "
-            "owner_timezone, home_timezone, caretaker_name) VALUES (:name, :species, :breed, "
-            ":age_years, :weight, :weight_unit, :quirks, :owner_timezone, :home_timezone, "
-            ":caretaker_name)",
-            body.model_dump(),
+            "owner_timezone, home_timezone, home_city, home_flag, caretaker_id, caretaker_name, owner_id) "
+            "VALUES (:name, :species, :breed, :age_years, :weight, :weight_unit, :quirks, :owner_timezone, "
+            ":home_timezone, :home_city, :home_flag, :caretaker_id, :caretaker_name, :owner_id)",
+            {**_pet_fields(conn, body, user), "owner_id": user["id"]},
         ).lastrowid
-        conn.execute("INSERT INTO emergency_cards (pet_id) VALUES (?)", (pet_id,))
+        conn.execute("INSERT INTO emergency_cards (pet_id, owner_name) VALUES (?, ?)", (pet_id, user["name"]))
         return pet_out(get_pet_row(conn, pet_id))
 
 
@@ -184,21 +233,24 @@ def get_pet(pet_id: int) -> dict:
 
 
 @app.put("/api/pets/{pet_id}")
-def update_pet(pet_id: int, body: PetIn) -> dict:
+def update_pet(pet_id: int, body: PetIn, user=Me) -> dict:
+    _owner_only(user)
     with connect() as conn:
         get_pet_row(conn, pet_id)
         conn.execute(
             "UPDATE pets SET name = :name, species = :species, breed = :breed, "
             "age_years = :age_years, weight = :weight, weight_unit = :weight_unit, "
-            "quirks = :quirks, owner_timezone = :owner_timezone, "
-            "home_timezone = :home_timezone, caretaker_name = :caretaker_name WHERE id = :id",
-            {**body.model_dump(), "id": pet_id},
+            "quirks = :quirks, owner_timezone = :owner_timezone, home_timezone = :home_timezone, "
+            "home_city = :home_city, home_flag = :home_flag, caretaker_id = :caretaker_id, "
+            "caretaker_name = :caretaker_name WHERE id = :id",
+            {**_pet_fields(conn, body, user), "id": pet_id},
         )
         return pet_out(get_pet_row(conn, pet_id))
 
 
 @app.delete("/api/pets/{pet_id}", status_code=204)
-def delete_pet(pet_id: int) -> None:
+def delete_pet(pet_id: int, user=Me) -> None:
+    _owner_only(user)
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)
         photos = [r[0] for r in conn.execute(
@@ -318,10 +370,13 @@ async def create_checkin(
     status: Literal["done", "could_not"] = Form(...),
     reason: str = Form(""),
     note: str = Form(""),
-    caretaker_name: str = Form(""),
-    role: Literal["owner", "caretaker"] = Form("caretaker"),
+    role: Literal["owner", "caretaker"] | None = Form(None),
     photo: UploadFile | None = File(None),
+    user=Me,
 ) -> dict:
+    """Whoever is signed in ticks it off, and only for a pet they may see."""
+    if role is not None and role != user["role"]:
+        raise HTTPException(403, f"{user['name']} is a {user['role']}, not a {role}.")
     day = parse_day(slot_date)
     reason = reason.strip()
     if status == "could_not" and not reason:
@@ -340,10 +395,10 @@ async def create_checkin(
         ).fetchone()
         if task is None:
             raise HTTPException(404, f"Task {task_id} not found.")
+        require_pet(conn, user, task["pet_id"])
         if not task_runs_on(task, day):
             raise HTTPException(422, f"'{task['title']}' isn't scheduled on {day.isoformat()}.")
-        if not caretaker_name.strip():
-            caretaker_name = person_name(conn, get_pet_row(conn, task["pet_id"]), role)
+        caretaker_name = user["name"]
 
         # --- Meds rule (hard rule, not AI) ---------------------------------
         if task["type"] == "meds":

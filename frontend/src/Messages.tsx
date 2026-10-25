@@ -38,7 +38,9 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
     return () => clearInterval(id)
   }, [load])
 
-  const other = role === 'owner' ? (pet.caretaker_name || 'the caretaker') : 'the owner'
+  // the other person in this pet's thread, and where they are
+  const other = role === 'owner' ? pet.caretaker_name || 'the caretaker' : pet.owner_name || 'the owner'
+  const otherPlace = role === 'owner' ? `${pet.home_city} ${pet.home_flag}` : `${pet.owner_city} ${pet.owner_flag}`
 
   return (
     <div className="chat card">
@@ -46,7 +48,7 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
         <div>
           <h2>Chat with {other}</h2>
           <p className="muted small">
-            About {pet.name}. Times are {pet.name}'s home time{role === 'owner' ? ', yours in gray' : ''}.
+            {otherPlace.trim() && `In ${otherPlace.trim()} · `}About {pet.name}. Times are {pet.name}'s home time{role === 'owner' ? ', yours in gray' : ''}.
           </p>
         </div>
         {role === 'caretaker' && <AskTendedButton pet={pet} variant="small" />}

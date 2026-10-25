@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { api, type EmergencyFields, type Pet, type PetInput, type Role } from './api'
+import { api, type EmergencyFields, type Pet, type PetInput, type Role, type User } from './api'
 import { PetAvatar } from './PetAvatar'
-import { timeIn } from './time'
 import { Field } from './ui'
 
 export function Profile({
@@ -26,7 +25,7 @@ export function Profile({
         <section className="card sample-box">
           <h2>Sample data</h2>
           <p className="muted small">
-            Re-create both sample pets with a fresh sample week ending yesterday. Your own pets aren't touched.
+            Re-create the sample pets with a fresh sample week ending yesterday. Pets you added aren't touched.
           </p>
           <button className="btn ghost" onClick={onResetSamples}>
             Reset sample data
@@ -38,13 +37,13 @@ export function Profile({
 }
 
 function ProfileReadOnly({ pet }: { pet: Pet }) {
-  const [now] = useState(() => new Date())
   const facts = [
     ['Species', pet.species],
     ['Breed', pet.breed],
     ['Age', pet.age_years != null ? `${pet.age_years} years` : ''],
     ['Weight', pet.weight != null ? `${pet.weight} ${pet.weight_unit}` : ''],
-    ['Owner’s time', `${timeIn(now, pet.owner_timezone)} (${pet.owner_timezone.replace(/_/g, ' ')})`],
+    ['Lives in', [pet.home_city, pet.home_flag].filter(Boolean).join(' ')],
+    ['Owner', [pet.owner_name, pet.owner_city && `in ${pet.owner_city}`, pet.owner_flag].filter(Boolean).join(' ')],
   ].filter(([, v]) => v)
   return (
     <section className="card profile-ro">
@@ -96,8 +95,9 @@ const emptyPet = (): PetInput => ({
   weight: null,
   weight_unit: 'lb',
   quirks: '',
-  owner_timezone: browserTz(),
   home_timezone: browserTz(),
+  home_city: '',
+  caretaker_id: null,
   caretaker_name: '',
 })
 
@@ -128,7 +128,16 @@ export function ProfileForm({
   onCancel?: () => void
 }) {
   const [form, setForm] = useState<PetInput>(() => (pet ? { ...pet } : emptyPet()))
+  const [carers, setCarers] = useState<User[]>([])
   const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    api.users().then((list) => setCarers(list.filter((u) => u.role === 'caretaker')), () => {})
+  }, [])
+  const pickCarer = (id: string) => {
+    const c = carers.find((u) => u.id === id)
+    // the pet lives where its caretaker is
+    setForm((f) => (c ? { ...f, caretaker_id: c.id, caretaker_name: c.name, home_city: c.city, home_timezone: c.timezone } : { ...f, caretaker_id: null }))
+  }
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const set = <K extends keyof PetInput>(k: K, v: PetInput[K]) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -144,8 +153,9 @@ export function ProfileForm({
       weight: form.weight,
       weight_unit: form.weight_unit,
       quirks: form.quirks,
-      owner_timezone: form.owner_timezone,
       home_timezone: form.home_timezone,
+      home_city: form.home_city,
+      caretaker_id: form.caretaker_id,
       caretaker_name: form.caretaker_name,
     }
     try {
@@ -209,13 +219,20 @@ export function ProfileForm({
             </select>
           </div>
         </Field>
-        <Field label="Caretaker's name">
-          <input value={form.caretaker_name} onChange={(e) => set('caretaker_name', e.target.value)} placeholder="Who's looking after them?" />
+        <Field label="Caretaker (they'll see this pet)">
+          <select value={form.caretaker_id ?? ''} onChange={(e) => pickCarer(e.target.value)}>
+            <option value="">No one yet</option>
+            {carers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} · {c.city} {c.flag}
+              </option>
+            ))}
+          </select>
         </Field>
-        <Field label="Owner's time zone (where you are)">
-          <ZoneSelect value={form.owner_timezone} onChange={(v) => set('owner_timezone', v)} />
+        <Field label="City where the pet is">
+          <input value={form.home_city} onChange={(e) => set('home_city', e.target.value)} placeholder="Accra, Zurich, Tokyo…" />
         </Field>
-        <Field label="Pet's home time zone (where the caretaker is)">
+        <Field label="Pet's time zone (where the caretaker is)">
           <ZoneSelect value={form.home_timezone} onChange={(v) => set('home_timezone', v)} />
         </Field>
       </div>

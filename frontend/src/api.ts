@@ -11,6 +11,31 @@ export type Water = 'less' | 'normal' | 'more'
 export type Energy = 'low' | 'normal' | 'high'
 export type Potty = 'normal' | 'off'
 
+/** A demo account (no passwords). */
+export interface User {
+  id: string
+  name: string
+  role: Role
+  city: string
+  country: string
+  flag: string
+  timezone: string
+  note: string
+}
+
+/** A pet as listed on the "Who's using Tended?" screen. */
+export interface PetBrief {
+  id: number
+  name: string
+  species: string
+  photo_url: string | null
+  home_city: string
+  home_flag: string
+  home_timezone: string
+  owner_name: string
+  caretaker_name: string
+}
+
 export interface Pet {
   id: number
   name: string
@@ -21,14 +46,26 @@ export interface Pet {
   weight_unit: 'lb' | 'kg'
   photo_url: string | null
   quirks: string
-  owner_timezone: string
-  home_timezone: string
+  owner_timezone: string // the owner's account
+  home_timezone: string // where the pet and its caretaker are
+  home_city: string
+  home_flag: string
+  owner_id: string | null
+  owner_name: string
+  owner_city: string
+  owner_flag: string
+  caretaker_id: string | null
   caretaker_name: string
+  caretaker_city: string
+  caretaker_flag: string
   is_sample: boolean
   created_at: string
 }
 
-export type PetInput = Omit<Pet, 'id' | 'photo_url' | 'is_sample' | 'created_at'>
+export type PetInput = Pick<
+  Pet,
+  'name' | 'species' | 'breed' | 'age_years' | 'weight' | 'weight_unit' | 'quirks' | 'home_timezone' | 'home_city' | 'caretaker_id' | 'caretaker_name'
+>
 
 export interface Task {
   id: number
@@ -345,8 +382,20 @@ export class ApiError extends Error {
   }
 }
 
+// Who is using Tended. Demo only: the backend trusts this header, and checks
+// every request against it (owners see their pets, caretakers the pets they look after).
+const USER_KEY = 'tended.user'
+export const SIGNED_OUT = 'tended:signed-out'
+export const signedInAs = () => localStorage.getItem(USER_KEY)
+export const signIn = (id: string) => localStorage.setItem(USER_KEY, id)
+export const signOut = () => localStorage.removeItem(USER_KEY)
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init)
+  const headers = new Headers(init?.headers)
+  const user = signedInAs()
+  if (user) headers.set('X-Tended-User', user)
+  const res = await fetch(path, { ...init, headers })
+  if (res.status === 401 && path !== '/api/users') window.dispatchEvent(new Event(SIGNED_OUT))
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`
     try {
@@ -372,6 +421,8 @@ const json = (method: string, body: unknown): RequestInit => ({
 })
 
 export const api = {
+  users: () => request<(User & { pets: PetBrief[] })[]>('/api/users'),
+  me: () => request<User>('/api/me'),
   pets: () => request<Pet[]>('/api/pets'),
   createPet: (p: PetInput) => request<Pet>('/api/pets', json('POST', p)),
   updatePet: (id: number, p: PetInput) => request<Pet>(`/api/pets/${id}`, json('PUT', p)),
@@ -398,7 +449,6 @@ export const api = {
     status: CheckinStatus
     reason?: string
     note?: string
-    caretaker_name?: string
     role?: Role
     photo?: File | null
   }) => {
@@ -408,8 +458,7 @@ export const api = {
     form.append('status', data.status)
     form.append('reason', data.reason ?? '')
     form.append('note', data.note ?? '')
-    form.append('caretaker_name', data.caretaker_name ?? '')
-    form.append('role', data.role ?? 'caretaker')
+    if (data.role) form.append('role', data.role)
     if (data.photo) form.append('photo', data.photo)
     return request<Checkin>('/api/checkins', { method: 'POST', body: form })
   },

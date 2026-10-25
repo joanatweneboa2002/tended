@@ -4,8 +4,8 @@ Time zones: each pet has a `home_timezone` (where the pet and caretaker are)
 and an `owner_timezone` (where the owner is, often travelling). Schedule
 and appointment times are stored as wall-clock times in the pet's home time
 zone. Timestamps (check-ins, messages, health logs) are stored in UTC. The
-frontend shows everything in the viewer's local time: home time for the
-caretaker, owner time for the owner.
+frontend shows the pet's home time first to everyone; the owner also sees
+their own time, smaller. The owner's zone comes from their account (users.py).
 """
 
 import sqlite3
@@ -116,8 +116,19 @@ def with_photo_url(row: sqlite3.Row) -> dict:
 
 
 def pet_out(row: sqlite3.Row) -> dict:
+    """A pet for the browser, with where its owner and caretaker are."""
+    from backend.users import USERS
+    people = {u[0]: u for u in USERS}
     pet = with_photo_url(row)
     pet["is_sample"] = bool(pet["is_sample"])
+    owner, carer = people.get(pet.get("owner_id")), people.get(pet.get("caretaker_id"))
+    if owner:  # the owner's clock is their account's, never a stale copy
+        pet["owner_timezone"] = owner[6]
+    pet["owner_name"] = owner[1] if owner else ""
+    pet["owner_city"] = owner[3] if owner else ""
+    pet["owner_flag"] = owner[5] if owner else ""
+    pet["caretaker_city"] = carer[3] if carer else ""
+    pet["caretaker_flag"] = carer[5] if carer else ""
     return pet
 
 
@@ -132,6 +143,9 @@ def person_name(conn: sqlite3.Connection, pet: sqlite3.Row, role: str) -> str:
     """Display name for the owner or caretaker of this pet."""
     if role == "caretaker":
         return pet["caretaker_name"] or "Caretaker"
+    owner = conn.execute("SELECT name FROM users WHERE id = ?", (pet["owner_id"],)).fetchone()
+    if owner:
+        return owner["name"]
     row = conn.execute(
         "SELECT owner_name FROM emergency_cards WHERE pet_id = ?", (pet["id"],)
     ).fetchone()

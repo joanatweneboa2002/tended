@@ -10,7 +10,6 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from backend.common import (
     get_pet_row,
-    person_name,
     read_photo,
     remove_photo,
     save_photo,
@@ -18,6 +17,7 @@ from backend.common import (
     with_photo_url,
 )
 from backend.db import connect
+from backend.users import Me
 
 router = APIRouter(prefix="/api")
 
@@ -56,10 +56,15 @@ def list_messages(pet_id: int, after_id: int = 0) -> list[dict]:
 @router.post("/pets/{pet_id}/messages", status_code=201)
 async def send_message(
     pet_id: int,
-    sender_role: Role = Form(...),
+    sender_role: Role | None = Form(None),
     text: str = Form(""),
     photo: UploadFile | None = File(None),
+    user=Me,
 ) -> dict:
+    """The sender is whoever is signed in: the pet's owner or its caretaker."""
+    if sender_role is not None and sender_role != user["role"]:
+        raise HTTPException(403, f"{user['name']} is a {user['role']}, not a {sender_role}.")
+    sender_role = user["role"]
     text = text.strip()
     if len(text) > MAX_TEXT:
         raise HTTPException(422, f"Messages can be up to {MAX_TEXT} characters.")
@@ -67,8 +72,8 @@ async def send_message(
     if not text and checked is None:
         raise HTTPException(422, "Write something or add a photo.")
     with connect() as conn:
-        pet = get_pet_row(conn, pet_id)
-        name = person_name(conn, pet, sender_role)
+        get_pet_row(conn, pet_id)
+        name = user["name"]
     saved = save_photo(checked, f"msg{pet_id}") if checked else None
     try:
         with connect() as conn:

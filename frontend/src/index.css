@@ -111,10 +111,57 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .brand-mark { width: 36px; height: 36px; border-radius: 12px; background: var(--ink); color: var(--sky); display: grid; place-items: center; flex: none; }
 .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
-.view-switch { display: inline-flex; background: #fff; border-radius: 999px; padding: 4px; box-shadow: var(--shadow-sm); }
-.view-switch button { border: 0; background: transparent; padding: 7px 12px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 13px; color: var(--gray); }
-.view-switch button:hover { color: var(--ink); }
-.view-switch button.active { background: var(--ink); color: #fff; }
+.hello { margin: 0; display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.hello b { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hello span { font-size: 13px; font-weight: 600; color: var(--gray); white-space: nowrap; }
+
+/* people: a drawn avatar (initial on a tint), the profile menu */
+.person-avatar { flex: none; display: inline-grid; place-items: center; border-radius: 50%; color: var(--ink); font-weight: 800; line-height: 1; box-shadow: 0 0 0 2px #fff; }
+.profile-menu-wrap { position: relative; }
+.profile-btn { border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; display: block; }
+.profile-btn .person-avatar { box-shadow: 0 0 0 2px #fff, var(--shadow-sm); }
+.profile-btn:hover .person-avatar, .profile-btn[aria-expanded='true'] .person-avatar { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--sky-strong); }
+.profile-menu {
+  position: absolute; z-index: 80; right: 0; top: calc(100% + 10px); width: 260px; padding: 16px;
+  background: #fff; border-radius: var(--radius-sm); box-shadow: var(--shadow-lift); display: flex; flex-direction: column; gap: 10px;
+}
+.profile-menu-head { display: flex; align-items: center; gap: 12px; }
+.profile-menu-head p { margin: 0; }
+.profile-name { font-size: 18px; font-weight: 800; }
+.profile-role { font-size: 13px; font-weight: 700; display: inline-block; margin-top: 2px !important; padding: 1px 9px; border-radius: 999px; background: var(--sky-pale); }
+.profile-city { font-size: 13px; color: var(--gray); font-weight: 600; margin-top: 3px !important; }
+.profile-note { margin: 0; }
+.profile-menu .btn { width: 100%; }
+
+/* welcome: "Who's using Tended?" */
+.welcome { padding-bottom: 40px; }
+.welcome-head { display: flex; align-items: center; gap: 8px; padding: 22px 0 0; }
+.welcome-hero { margin: 18px 0 22px; padding: 22px 20px 34px; border-radius: var(--radius); background: var(--sky); position: relative; }
+.welcome-hero::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 24px; pointer-events: none;
+  background: var(--wave) bottom / 100% 100% no-repeat; border-radius: 0 0 var(--radius) var(--radius);
+}
+.welcome-hero h1 { font-size: 30px; }
+.welcome-hero p { margin: 8px 0 0; color: var(--gray); font-weight: 600; }
+.people-section { margin-top: 18px; }
+.people-section h2 { font-size: 20px; margin: 0 4px 12px; }
+.people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.person-card {
+  width: 100%; display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 0; border-radius: var(--radius-sm);
+  background: #fff; box-shadow: var(--shadow); text-align: left; color: var(--ink); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+}
+.person-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--sky-strong), var(--shadow); }
+.person-top { display: flex; align-items: center; gap: 12px; }
+.person-id { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.person-id b { font-size: 18px; font-weight: 800; }
+.person-id span { font-size: 13px; color: var(--gray); font-weight: 600; }
+.person-go { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 20px; line-height: 1; }
+.person-route { font-size: 13.5px; font-weight: 700; padding: 8px 12px; border-radius: 14px; background: var(--sky-pale); }
+.person-card.is-caretaker .person-route { background: var(--mint-pale); }
+.person-pets { display: flex; flex-wrap: wrap; gap: 8px; }
+.person-pet { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px; background: var(--page); font-size: 13px; font-weight: 600; }
+.person-pet img, .person-pet-blank { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--soft); }
+.demo-note { margin: 24px 0 0; text-align: center; font-size: 13px; color: var(--gray); font-weight: 600; }
 .activity-btn, .sos-btn {
   width: 40px; height: 40px; flex: none; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
   display: grid; place-items: center; background: #fff; color: var(--ink); box-shadow: var(--shadow-sm);
@@ -123,8 +170,6 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .activity-btn:hover, .sos-btn:hover:not(:disabled) { box-shadow: 0 0 0 2px var(--sky-strong), var(--shadow-sm); }
 .sos-circle { display: grid; place-items: center; color: var(--sos); }
 .sos-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.view-owner .brand-name { display: none; } /* owner's bar also holds Agent activity */
-@media (min-width: 440px) { .view-owner .brand-name { display: inline; } }
 
 /* ---- pet switcher: rounded pills ---- */
 .pet-pills { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; margin: 0 -20px; padding-inline: 20px; scrollbar-width: none; }
@@ -150,7 +195,8 @@ main { display: flex; flex-direction: column; gap: 16px; }
   background: var(--wave) bottom / 100% 100% no-repeat; border-radius: 0 0 var(--radius) var(--radius);
 }
 .page-head-text { min-width: 0; position: relative; z-index: 1; }
-.page-head-text p { margin: 4px 0 0; color: var(--gray); font-weight: 600; font-size: 14px; }
+.page-head-text p { margin: 4px 0 0; color: var(--ink); font-weight: 600; font-size: 14px; }
+.page-head-text p.small { margin-top: 2px; color: var(--gray); font-size: 13px; }
 .page-head-photo { border: 0; padding: 0; background: none; cursor: pointer; position: relative; z-index: 1; flex: none; }
 .page-head-photo .avatar, .hero-photo .avatar { border-radius: 62% 38% 54% 46% / 49% 59% 41% 51%; object-fit: cover; }
 .page-head-photo .avatar { box-shadow: 0 0 0 4px #fff, var(--shadow); }
@@ -285,10 +331,15 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .hero-status { margin: 6px 0 0; font-size: 17px; font-weight: 800; line-height: 1.25; }
 .hero-facts { margin: 6px 0 0; font-size: 13px; color: var(--gray); font-weight: 600; }
 .hero-facts .badge { margin-left: 6px; }
+.hero-places { grid-area: pill; position: relative; z-index: 1; margin: 16px 92px 0 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.place-line { margin: 0; font-size: 15px; font-weight: 800; line-height: 1.3; }
+.place-sub { margin: 0; font-size: 13px; font-weight: 600; color: var(--gray); }
 .time-pill {
-  grid-area: pill; justify-self: start; position: relative; z-index: 1; margin: 16px 92px 0 0;
-  background: #fff; color: var(--ink); font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 16px; box-shadow: var(--shadow-sm);
+  margin: 6px 0 0; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; padding: 7px 12px;
+  border-radius: 16px; box-shadow: var(--shadow-sm); line-height: 1.4;
 }
+.time-pill b { font-weight: 800; }
+.time-pill small { color: var(--gray); font-size: 12px; font-weight: 600; }
 .hero-media { grid-area: media; margin-top: -60px; } /* the photo pokes out of the top; the ring is placed against .hero */
 .hero-photo { position: relative; z-index: 1; display: block; border: 0; padding: 0; background: none; cursor: pointer; }
 .hero-photo .avatar { box-shadow: 0 0 0 5px #fff, 0 16px 34px rgba(17, 19, 24, 0.18); transition: transform 0.2s; }

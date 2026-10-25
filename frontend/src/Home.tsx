@@ -8,7 +8,7 @@ import { Icon, IconCircle, TASK_LOOK, type IconName, type Tone } from './Icons'
 import { PetAvatar } from './PetAvatar'
 import { ProgressRing } from './ProgressRing'
 import { TickExtras, TodoRow, useTaskTick } from './Schedule'
-import { greeting, stampFor, timeIn, todayIn, yourTz } from './time'
+import { dayIn, gap, greeting, stampFor, timeIn, todayIn, yourTz } from './time'
 import { When } from './ui'
 
 export type Tab = 'home' | 'schedule' | 'health' | 'messages' | 'appointments' | 'profile'
@@ -133,15 +133,55 @@ function petFacts(pet: Pet): string {
   return [pet.breed || pet.species, age].filter(Boolean).join(' · ')
 }
 
-function Hero({ d, pet, role, now, urgent, go }: { d: Dashboard; pet: Pet; role: Role; now: Date; urgent: boolean; go: (t: Tab) => void }) {
+/** Both places: where the pet is, how far that is from the owner, and the clocks.
+ *  Owners see the pet's time first and theirs smaller; caretakers only the pet's. */
+function Places({ pet, role, now }: { pet: Pet; role: Role; now: Date }) {
+  const city = pet.home_city || `${pet.name}'s home`
   const home = timeIn(now, pet.home_timezone)
-  const theirs = yourTz(pet, role)
-  const pill =
-    role === 'caretaker'
-      ? `${greeting(pet.home_timezone)}, ${pet.caretaker_name || 'there'} · ${home}`
-      : theirs
-        ? `${home} in ${pet.name}'s home · ${timeIn(now, theirs)} for you`
-        : `${home} for you and ${pet.name}`
+  if (role === 'caretaker') {
+    const g = gap(pet.owner_timezone, pet.home_timezone, now)
+    return (
+      <div className="hero-places">
+        <p className="place-line">
+          {pet.name} is with you in {city} {pet.home_flag}
+        </p>
+        <p className="place-sub">
+          {pet.owner_name || 'The owner'} is in {pet.owner_city || 'another city'} {pet.owner_flag} · {g.text.replace(' you', '')}
+        </p>
+        <p className="time-pill">
+          {greeting(pet.home_timezone, now)}, {pet.caretaker_name || 'there'} · <b>{home}</b>
+        </p>
+      </div>
+    )
+  }
+  const g = gap(pet.home_timezone, pet.owner_timezone, now)
+  const day = (tz: string) => dayIn(now, tz, { weekday: 'short' })
+  const differentDay = !!g.dayNote
+  return (
+    <div className="hero-places">
+      <p className="place-line">
+        {pet.name} is in {city} {pet.home_flag} · {g.text}
+      </p>
+      {g.dayNote && <p className="place-sub">It's {g.dayNote.replace(' there', '')} in {city}</p>}
+      <p className="time-pill">
+        <b>
+          {home}
+          {differentDay && ` ${day(pet.home_timezone)}`}
+        </b>{' '}
+        in {city}
+        {yourTz(pet, role) && (
+          <small>
+            {' '}
+            · {timeIn(now, pet.owner_timezone)}
+            {differentDay && ` ${day(pet.owner_timezone)}`} for you in {pet.owner_city || 'your city'}
+          </small>
+        )}
+      </p>
+    </div>
+  )
+}
+
+function Hero({ d, pet, role, now, urgent, go }: { d: Dashboard; pet: Pet; role: Role; now: Date; urgent: boolean; go: (t: Tab) => void }) {
   return (
     <section className="hero">
       <div className="hero-text">
@@ -152,7 +192,7 @@ function Hero({ d, pet, role, now, urgent, go }: { d: Dashboard; pet: Pet; role:
           {pet.is_sample && <span className="badge sample">Sample</span>}
         </p>
       </div>
-      <p className="time-pill">{pill}</p>
+      <Places pet={pet} role={role} now={now} />
       <div className="hero-media">
         <button className="hero-photo" onClick={() => go('profile')} aria-label={`Open ${pet.name}'s profile`}>
           <PetAvatar pet={pet} size={148} />

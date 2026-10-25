@@ -380,3 +380,43 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > bugs to fix while you’re in there: the caretaker always sees times in the pet’s home time. the owner sees the pet’s time first and their own time smaller
 >
 > when done: take screenshots at 390px wide and 1280px wide of owner Home, caretaker Home and Messages, check them against this brief and fix anything that doesn’t match. make sure the safety tests still pass, then commit and push. add this prompt to my prompt log.
+
+---
+
+## Prompt 18: People, places and accounts
+
+> ok great! 
+>
+> next: people, places and accounts. demo only, no passwords. keep every feature, the agents and the new design.
+>
+> the big idea: owners and their pets are in different places. every screen should make that clear.
+>
+> demo users
+>
+> Joana, owner, lives in New Haven, CT, USA (America/New_York). pet: Fynn, a white Maltese, in Accra, Ghana (Africa/Accra). caretaker: Ama, in Accra
+> Maya, owner, lives in London, UK (Europe/London), on a six month stay. pet: Miso the cat, in Zurich, Switzerland (Europe/Zurich). caretaker: Lena, in Zurich
+> Kenji, owner, lives in Medellín, Colombia (America/Bogota). pets: Clover the rabbit and Kiwi the parrot, in Tokyo, Japan (Asia/Tokyo). caretaker: Yuki, in Tokyo
+> rename the existing caretaker Sam to Lena everywhere, including sample messages and safety tests. keep Miso’s sample data and hidden problem exactly as they are otherwise
+> give Fynn and Kiwi a week of sample check-ins and messages in their local time
+>
+> rules
+>
+> owners only see their own pets. caretakers only see the pets they’ve been given. enforce this in the backend too: if someone asks for a pet that isn’t theirs, the backend refuses
+> messages are per pet, between that pet’s owner and its caretaker
+> agents only read pets the current user is allowed to see
+>
+> show the places
+>
+> welcome screen “Who’s using Tended?” in the same style as the new design: two sections, “Pet owners” and “Caretakers”. each person is a card with their photo, name, city and flag, plus small photos of their pets with where the pet is (for example “Joana · New Haven 🇺🇸 → Fynn in Accra 🇬🇭”). one tap to enter. note at the bottom: “demo accounts for testing, no password needed”
+> after login, the top bar greets the person by name with their city, like “Hi Joana · New Haven”
+> the hero on Home shows both places: “Fynn is in Accra 🇬🇭 · 4 hours ahead of you”, with both local times
+> owners see the pet’s time first and their own time smaller. caretakers always see the pet’s local time
+> replace the Owner/Caretaker switch with a small round profile photo that opens a menu with name, role, city and “Switch user”
+> only show the pet switcher if the user has more than one pet
+> remember the chosen user in the browser so a refresh doesn’t log them out
+>
+> tests
+>
+> add a safety test: Lena can’t open Fynn, Ama can’t open Miso, and Yuki can’t open Fynn, through the screen or the backend. add it to the results file
+> check that times are right across all three time zone pairs, including Kenji and Tokyo, where the day is different
+> run all the safety tests, then commit and push

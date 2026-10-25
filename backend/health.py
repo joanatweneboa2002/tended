@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from backend.common import get_pet_row, home_now, parse_day, utc_now_iso
 from backend.db import connect
+from backend.users import Me
 
 router = APIRouter(prefix="/api")
 
@@ -59,12 +60,12 @@ def list_health(pet_id: int, days: int = 7, since: str | None = None) -> list[di
 
 
 @router.post("/pets/{pet_id}/health", status_code=201)
-def create_health(pet_id: int, body: HealthIn) -> dict:
+def create_health(pet_id: int, body: HealthIn, user=Me) -> dict:
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)
         data = body.model_dump()
         data["weight_unit"] = data["weight_unit"] or pet["weight_unit"]
-        data["logged_by"] = data["logged_by"].strip() or pet["caretaker_name"]
+        data["logged_by"] = user["name"]  # whoever is signed in
         log_id = conn.execute(
             "INSERT INTO health_logs (pet_id, log_date, logged_at, logged_by, weight, "
             "weight_unit, appetite, water, energy, potty, symptoms) VALUES (:pet_id, "

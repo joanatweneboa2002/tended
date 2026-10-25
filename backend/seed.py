@@ -1,4 +1,4 @@
-"""Sample data: two clearly labelled sample pets and a week of check-ins.
+"""Sample data: four clearly labelled sample pets, each with a week of check-ins.
 
 Dates are relative to the day you seed, so the sample week is always the
 7 days before today. Today is left empty for you to check in.
@@ -11,8 +11,11 @@ purpose: that day's details are only in the chat, for the watchdog to
 suggest logging. Day 6 also has a sample prompt-injection message. One morning thyroid dose has
 no check-in at all, and the caretaker isn't sure when the owner asks.
 
-The pets live in New York (home time); the sample owner is travelling in
-London, so owner and caretaker see times in different zones.
+Owners and their pets are in different places (demo accounts in users.py):
+    Joana (New Haven) -> Fynn in Accra, cared for by Ama
+    Maya (London, six-month stay) -> Miso in Zurich, cared for by Lena
+    Kenji (Medellín) -> Clover and Kiwi in Tokyo, cared for by Yuki
+Schedule times, notes and messages are written in each pet's own local time.
 
     python -m backend.seed           # add sample pets if the database is empty
     python -m backend.seed --reset   # delete sample pets and re-create them
@@ -26,9 +29,13 @@ from zoneinfo import ZoneInfo
 from backend.config import PHOTOS_DIR
 from backend.db import connect, init_db, task_runs_on
 
-SAMPLE_TZ = "America/New_York"      # pets' home, where the caretaker is
-SAMPLE_OWNER_TZ = "Europe/London"   # the owner is travelling
-CARETAKER = "Sam"
+# Where each sample pet lives, and who looks after it.
+HOMES = {
+    "miso": {"owner": "maya", "caretaker": "lena", "tz": "Europe/Zurich", "city": "Zurich"},
+    "clover": {"owner": "kenji", "caretaker": "yuki", "tz": "Asia/Tokyo", "city": "Tokyo"},
+    "fynn": {"owner": "joana", "caretaker": "ama", "tz": "Africa/Accra", "city": "Accra"},
+    "kiwi": {"owner": "kenji", "caretaker": "yuki", "tz": "Asia/Tokyo", "city": "Tokyo"},
+}
 
 PETS = [
     {
@@ -60,7 +67,7 @@ PETS = [
              "Scoop clumps and note anything unusual.", None),
         ],
         "emergency": {
-            "owner_name": "Jordan Rivera",
+            "owner_name": "Maya",
             "owner_phone": "(555) 010-2001",
             "backup_name": "Priya Shah (neighbor)",
             "backup_phone": "(555) 010-2002",
@@ -106,13 +113,13 @@ PETS = [
              "Gentle brush, 5 minutes. She sheds a lot.", None),
         ],
         "emergency": {
-            "owner_name": "Jordan Rivera",
-            "owner_phone": "(555) 010-2001",
-            "backup_name": "Priya Shah (neighbor)",
-            "backup_phone": "(555) 010-2002",
-            "vet_name": "Riverside Exotic Pet Hospital (sample)",
+            "owner_name": "Kenji",
+            "owner_phone": "(555) 010-2101",
+            "backup_name": "Haruto Sato (neighbor)",
+            "backup_phone": "(555) 010-2102",
+            "vet_name": "Shibuya Exotic Pet Clinic (sample)",
             "vet_phone": "(555) 010-4000",
-            "vet_address": "45 River Road, Springfield (sample address)",
+            "vet_address": "1-2-3 Jingumae, Shibuya, Tokyo (sample address)",
             "allergies": "None known",
             "conditions": "None. If she stops eating or pooping for 12 hours, call the vet right away.",
             "medications": "None",
@@ -205,8 +212,8 @@ CLOVER_HEALTH = [
     (4.1, "normal", "normal", "high", "normal", ""),
 ]
 
-# Miso's text thread: (day, HH:MM home time, sender, text). The owner is in
-# London, 5 hours ahead. Everything is read except the owner's last text.
+# Miso's text thread: (day, HH:MM Zurich time, sender, text). Maya is in
+# London, 1 hour behind. Everything is read except the owner's last text.
 MISO_MESSAGES = [
     (1, "07:55", "owner", "landed!! how's my girl doing"),
     (1, "08:20", "caretaker", "she's great!! ate everything and yelled at me for more lol"),
@@ -225,10 +232,10 @@ MISO_MESSAGES = [
     (7, "08:30", "caretaker", "few bites at breakfast and she's been under the bed most of the morning"),
     (7, "09:05", "owner", "ugh. keep an eye on her pls. text me how dinner goes tonight"),
 ]
-OWNER_NAME = "Jordan Rivera"
 
 
-# ---- Fynn (Maltese) and Kiwi (parrot): extra sample pets with a few days of check-ins
+# ---- Fynn (Maltese, Accra) and Kiwi (parrot, Tokyo): a week each, in their own local time.
+# notes: task -> one note per day 1..7 (or one note for every day)
 EXTRA_PETS = [
     {
         "key": "fynn",
@@ -239,31 +246,57 @@ EXTRA_PETS = [
         },
         "tasks": [
             ("Breakfast", "feed", "07:30", "daily", None, "1/2 cup small-breed kibble.", None),
-            ("Morning walk", "walk", "08:00", "daily", None, "20 minutes. Harness, not collar.", None),
+            ("Morning walk", "walk", "08:00", "daily", None, "20 minutes, before it gets hot. Harness, not collar.", None),
             ("Wipe eyes", "other", "08:30", "daily", None, "Damp cloth under each eye.", None),
             ("Dinner", "feed", "18:00", "daily", None, "1/2 cup small-breed kibble.", None),
-            ("Evening walk", "walk", "18:30", "daily", None, "Around the block.", None),
+            ("Evening walk", "walk", "18:30", "daily", None, "Around the block once it's cooler.", None),
             ("Brush coat", "other", "20:00", "daily", None, "Two minutes. He loves it.", None),
         ],
         "emergency": {
-            "owner_name": "Jordan Rivera", "owner_phone": "(555) 010-2001",
-            "backup_name": "Priya Shah (neighbor)", "backup_phone": "(555) 010-2002",
-            "vet_name": "Maple Street Animal Clinic (sample)", "vet_phone": "(555) 010-3000",
-            "vet_address": "123 Maple Street, Springfield (sample address)",
+            "owner_name": "Joana", "owner_phone": "(555) 010-2201",
+            "backup_name": "Kofi Mensah (neighbor)", "backup_phone": "(555) 010-2202",
+            "vet_name": "Osu Animal Clinic (sample)", "vet_phone": "(555) 010-3100",
+            "vet_address": "12 Oxford Street, Osu, Accra (sample address)",
             "allergies": "None known", "conditions": "None", "medications": "None",
             "vaccines": "Rabies and DHPP, up to date (sample)",
             "diet": "Small-breed kibble twice a day. No grapes, chocolate or onions.",
             "emergency_spending_limit": 1000, "microchip_number": "SAMPLE-985-112-000-789",
         },
-        # (days ago, task, note, photo in frontend/public/pets/diary)
-        "checkins": [
-            (3, "Morning walk", "Met a corgi. Very excited.", None),
-            (3, "Dinner", "Ate it all, then napped on the sofa.", "/pets/diary/fynn-nap.jpg"),
-            (2, "Morning walk", "Short one, it started to rain.", None),
-            (2, "Evening walk", "Zoomies in the park!", "/pets/diary/fynn-walk.jpg"),
-            (1, "Morning walk", "Barked at the mail carrier, got his brave-boy treat.", None),
+        "notes": {
+            "Breakfast": ["Ate it all.", "Ate it all, then begged for more.", "Ate it all.", "Ate most of it.",
+                          "Ate it all.", "Ate it all.", "Ate it all."],
+            "Morning walk": ["Met every dog on the street.", "25 minutes, lots of sniffing.", "Short one, it started to rain.",
+                             "Met a corgi. Very excited.", "20 minutes.",
+                             "Barked at the mail carrier, got his brave-boy treat.", "Nice and cool this morning."],
+            "Wipe eyes": ["Done.", "Done.", "Done.", "Done.", "A bit more staining today, wiped twice.", "Done.", "Done."],
+            "Dinner": ["Ate it all.", "Ate it all, then napped on the sofa.", "Ate it all.", "Ate it all.",
+                       "Ate it all.", "Left a few bites.", "Ate it all."],
+            "Evening walk": ["Around the block.", "Around the block.", "", "Zoomies in the park!",
+                             "Around the block.", "Long one, the evening was lovely.", "Around the block."],
+            "Brush coat": "Two minutes, he loved it.",
+        },
+        "could_not": (3, "Evening walk", "Big storm, so we played tug inside instead."),
+        "photos": {(2, "Dinner"): "/pets/diary/fynn-nap.jpg", (4, "Evening walk"): "/pets/diary/fynn-walk.jpg"},
+        "health": [(7.5, "normal", "normal", "high", "normal", ""), (None, "normal", "normal", "high", "normal", ""),
+                   (None, "normal", "normal", "normal", "normal", ""), (None, "normal", "normal", "high", "normal", ""),
+                   (None, "normal", "normal", "normal", "normal", "A bit more tear staining than usual."),
+                   (None, "normal", "normal", "high", "normal", ""), (7.5, "normal", "normal", "high", "normal", "")],
+        # (day, HH:MM Accra time, sender, text). Joana is in New Haven, 4 hours behind.
+        "messages": [
+            (1, "09:10", "caretaker", "morning walk done! he met every dog on the street 😂"),
+            (1, "13:30", "owner", "haha that's my boy. it's 9:30 here, just got to class"),
+            (2, "19:05", "caretaker", "dinner all gone, now he's snoring on the sofa"),
+            (2, "23:40", "owner", "sending him a kiss 😴 thank you Ama"),
+            (3, "08:50", "caretaker", "rain this morning so the walk was short. he gave me the saddest eyes"),
+            (3, "12:15", "owner", "lol he hates getting his paws wet"),
+            (4, "18:45", "caretaker", "evening walk at the park, he did zoomies 🐾 photo is in the diary"),
+            (5, "08:40", "caretaker", "tear stains are a bit worse today, i wiped them twice"),
+            (5, "14:20", "owner", "ok thanks! the vet said that's normal for maltese, just keep wiping after breakfast"),
+            (6, "09:00", "caretaker", "he barked at the mail carrier and then waited for his brave boy treat"),
+            (6, "22:30", "owner", "🤣 classic. talk tomorrow!"),
+            (7, "20:10", "caretaker", "brushed him tonight, so fluffy. all good here"),
+            (7, "23:55", "owner", "yay. love you fynn 🤍"),
         ],
-        "health": [(7.5, "normal", "normal", "high", "normal", ""), None, (None, "normal", "normal", "high", "normal", "")],
     },
     {
         "key": "kiwi",
@@ -283,23 +316,47 @@ EXTRA_PETS = [
             ("Clean the cage", "potty", "10:00", "weekly", "sat", "New cage paper, wash the perches.", None),
         ],
         "emergency": {
-            "owner_name": "Jordan Rivera", "owner_phone": "(555) 010-2001",
-            "backup_name": "Priya Shah (neighbor)", "backup_phone": "(555) 010-2002",
-            "vet_name": "Riverside Exotic Pet Hospital (sample, sees birds)", "vet_phone": "(555) 010-4000",
-            "vet_address": "45 River Road, Springfield (sample address)",
+            "owner_name": "Kenji", "owner_phone": "(555) 010-2101",
+            "backup_name": "Haruto Sato (neighbor)", "backup_phone": "(555) 010-2102",
+            "vet_name": "Shibuya Exotic Pet Clinic (sample, sees birds)", "vet_phone": "(555) 010-4000",
+            "vet_address": "1-2-3 Jingumae, Shibuya, Tokyo (sample address)",
             "allergies": "None known", "conditions": "None", "medications": "None",
             "vaccines": "Birds don't need routine vaccines; yearly avian vet check (sample)",
             "diet": "Pellets, fresh greens and peas daily. Never avocado, chocolate or salty snacks.",
             "emergency_spending_limit": 600, "microchip_number": "Leg band SAMPLE-KW-2024",
         },
-        "checkins": [
-            (3, "Pellets and fresh veg", "Ate the peas first.", None),
-            (3, "Out-of-cage time", "Said hello to me three times.", None),
-            (2, "Pellets and fresh veg", "Loved the corn today.", "/pets/diary/kiwi-snack.jpg"),
-            (2, "Out-of-cage time", "Played on the window perch.", None),
-            (1, "Pellets and fresh veg", "Cleaned the bowl.", None),
+        "notes": {
+            "Pellets and fresh veg": ["Ate the peas first.", "Loved the corn today.", "Ate the peas first.",
+                                      "Cleaned the bowl.", "Picked out all the greens.", "Ate everything.",
+                                      "Cleaned the bowl."],
+            "Fresh water": "",
+            "Out-of-cage time": ["Said hello to me three times.", "Played on the window perch.",
+                                 "Watched the crows for ages.", "Rang her bell nonstop.", "Sat on my shoulder.",
+                                 "New toy is a big hit.", "Said 'good bird' three times."],
+            "Cover the cage": "Covered, quiet right away.",
+            "Clean the cage": "New paper, perches washed.",
+        },
+        "could_not": None,
+        "photos": {(2, "Pellets and fresh veg"): "/pets/diary/kiwi-snack.jpg"},
+        "health": [(0.07, "normal", "normal", "high", "normal", ""), (None, "normal", "normal", "high", "normal", ""),
+                   (None, "normal", "normal", "normal", "normal", ""), (None, "normal", "normal", "high", "normal", ""),
+                   (None, "normal", "normal", "high", "normal", ""), (None, "normal", "normal", "normal", "normal", ""),
+                   (0.07, "normal", "normal", "high", "normal", "")],
+        # (day, HH:MM Tokyo time, sender, text). Kenji is in Medellín, 14 hours behind,
+        # so his evening is Yuki's next morning.
+        "messages": [
+            (1, "08:30", "caretaker", "good morning from tokyo! kiwi said hello as soon as i took the cover off"),
+            (1, "10:05", "owner", "haha she loves an audience. it's 8pm here, off to bed soon"),
+            (2, "17:40", "caretaker", "out-of-cage time on the window perch, she watched the crows for ages"),
+            (3, "09:15", "owner", "good night from medellín! well, good morning for you 😅 how's my girl?"),
+            (3, "09:20", "caretaker", "she's great! ate the peas first as usual"),
+            (4, "20:40", "caretaker", "cage covered, she's asleep"),
+            (5, "11:30", "owner", "can she have some apple? she loves it"),
+            (5, "12:10", "caretaker", "yes, i gave her a small slice with no seeds 🍎"),
+            (6, "18:05", "caretaker", "the new toy is a hit, she won't stop ringing the bell"),
+            (7, "18:00", "caretaker", "she said 'good bird' three times tonight 💚"),
+            (7, "21:45", "owner", "ahh I miss her. thank you Yuki!"),
         ],
-        "health": [(0.07, "normal", "normal", "high", "normal", ""), None, (None, "normal", "normal", "normal", "normal", "")],
     },
 ]
 ALL_SAMPLE_KEYS = ("miso", "clover", "fynn", "kiwi")
@@ -324,15 +381,48 @@ def ensure_sample_photos() -> int:
     return fixed
 
 
+def _people():
+    from backend.users import USERS
+    return {u[0]: {"name": u[1], "flag": u[5], "tz": u[6]} for u in USERS}
+
+
+def _week(key: str) -> list[date]:
+    """Day 1..7 = the 7 days before today, in the pet's own time zone."""
+    today = datetime.now(ZoneInfo(HOMES[key]["tz"])).date()
+    return [today - timedelta(days=7 - i) for i in range(7)]
+
+
+def _insert_messages(conn, pet_id: int, key: str, week: list[date], thread) -> None:
+    """A text thread written in the pet's local time. All read except the last."""
+    people, home = _people(), HOMES[key]
+    for i, (d, hhmm, role, text) in enumerate(thread):
+        is_last = i == len(thread) - 1
+        conn.execute(
+            "INSERT INTO messages (pet_id, sender_role, sender_name, text, created_at, read_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (pet_id, role, people[home["owner"] if role == "owner" else home["caretaker"]]["name"], text,
+             _utc_at(key, week[d - 1], hhmm), None if is_last else _utc_at(key, week[d - 1], hhmm, 4)),
+        )
+
+
 def seed_extra_pet(conn, spec: dict) -> int:
-    """Fynn or Kiwi: profile, schedule, emergency card, a few days of check-ins and health."""
-    rng = random.Random(f"tended-{spec['key']}")
-    today = datetime.now(ZoneInfo(SAMPLE_TZ)).date()
+    """Fynn or Kiwi: profile, schedule, emergency card and a week of check-ins, health and messages."""
+    key = spec["key"]
+    rng = random.Random(f"tended-{key}")
+    week = _week(key)
     pet_id, tasks = _insert_pet(conn, spec)
-    for days_ago, title, note, photo in spec["checkins"]:
-        _insert_checkin(conn, rng, pet_id, tasks[title], today - timedelta(days=days_ago), "done", note, photo=photo)
-    days = [today - timedelta(days=3 - i) for i in range(3)]
-    _insert_health(conn, pet_id, spec["pet"]["weight_unit"], days, spec["health"])
+    for i, day in enumerate(week, start=1):
+        for title, task in tasks.items():
+            if not task_runs_on(task, day):
+                continue
+            if spec["could_not"] and (i, title) == spec["could_not"][:2]:
+                _insert_checkin(conn, rng, key, pet_id, task, day, "could_not", reason=spec["could_not"][2])
+                continue
+            note = spec["notes"][title]
+            _insert_checkin(conn, rng, key, pet_id, task, day, "done", note if isinstance(note, str) else note[i - 1],
+                            photo=spec["photos"].get((i, title)))
+    _insert_health(conn, key, pet_id, spec["pet"]["weight_unit"], week, spec["health"])
+    _insert_messages(conn, pet_id, key, week, spec["messages"])
     return pet_id
 
 
@@ -352,14 +442,29 @@ def ensure_sample_pets() -> int:
     return added
 
 
+def ensure_accounts() -> bool:
+    """Databases from before accounts: give every pet an owner. Sample pets are
+    re-created (each in its own city, with its own people); pets someone added
+    themselves go to the first demo owner. Returns True if samples were reset."""
+    with connect() as conn:
+        stale = conn.execute("SELECT COUNT(*) FROM pets WHERE is_sample = 1 AND owner_id IS NULL").fetchone()[0]
+        conn.execute("UPDATE pets SET owner_id = 'joana', owner_timezone = 'America/New_York' "
+                     "WHERE is_sample = 0 AND owner_id IS NULL")
+    if stale:
+        reset_sample_data()
+    return bool(stale)
+
+
 def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
-    p = spec["pet"]
+    from backend.users import ZONE_FLAGS
+    p, home, people = spec["pet"], HOMES[spec["key"]], _people()
     pet_id = conn.execute(
         "INSERT INTO pets (name, species, breed, age_years, weight, weight_unit, quirks, "
-        "owner_timezone, home_timezone, caretaker_name, is_sample, photo_path) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
-        (p["name"], p["species"], p["breed"], p["age_years"], p["weight"], p["weight_unit"],
-         p["quirks"], SAMPLE_OWNER_TZ, SAMPLE_TZ, CARETAKER, sample_photo(spec["key"])),
+        "owner_timezone, home_timezone, caretaker_name, owner_id, caretaker_id, home_city, home_flag, "
+        "is_sample, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+        (p["name"], p["species"], p["breed"], p["age_years"], p["weight"], p["weight_unit"], p["quirks"],
+         people[home["owner"]]["tz"], home["tz"], people[home["caretaker"]]["name"], home["owner"],
+         home["caretaker"], home["city"], ZONE_FLAGS.get(home["tz"], ""), sample_photo(spec["key"])),
     ).lastrowid
     tasks = {}
     for title, ttype, time_, repeat, repeat_on, notes, dose in spec["tasks"]:
@@ -379,27 +484,31 @@ def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
     return pet_id, tasks
 
 
-def _insert_checkin(conn, rng, pet_id, task, day: date, status, note="", reason=None, photo=None):
-    tz = ZoneInfo(SAMPLE_TZ)
+def _caretaker(key: str) -> str:
+    return _people()[HOMES[key]["caretaker"]]["name"]
+
+
+def _insert_checkin(conn, rng, key, pet_id, task, day: date, status, note="", reason=None, photo=None):
     hh, mm = map(int, task["time"].split(":"))
-    local = datetime(day.year, day.month, day.day, hh, mm, tzinfo=tz)
+    local = datetime(day.year, day.month, day.day, hh, mm, tzinfo=ZoneInfo(HOMES[key]["tz"]))
     done_at = (local + timedelta(minutes=rng.randint(2, 25))).astimezone(timezone.utc)
     conn.execute(
         "INSERT INTO checkins (task_id, pet_id, task_type, slot_date, slot_time, status, "
         "reason, note, caretaker_name, created_at, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (task["id"], pet_id, task["type"], day.isoformat(), task["time"], status, reason,
-         note, CARETAKER, done_at.isoformat(timespec="seconds").replace("+00:00", "Z"), photo),
+         note, _caretaker(key), done_at.isoformat(timespec="seconds").replace("+00:00", "Z"), photo),
     )
 
 
-def _utc_at(day: date, hhmm: str, extra_minutes: int = 0) -> str:
+def _utc_at(key: str, day: date, hhmm: str, extra_minutes: int = 0) -> str:
+    """`hhmm` on `day` in the pet's home time, as a UTC timestamp."""
     hh, mm = map(int, hhmm.split(":"))
-    local = datetime(day.year, day.month, day.day, hh, mm, tzinfo=ZoneInfo(SAMPLE_TZ))
+    local = datetime(day.year, day.month, day.day, hh, mm, tzinfo=ZoneInfo(HOMES[key]["tz"]))
     at = (local + timedelta(minutes=extra_minutes)).astimezone(timezone.utc)
     return at.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def _insert_health(conn, pet_id, unit, week, rows) -> None:
+def _insert_health(conn, key, pet_id, unit, week, rows) -> None:
     for day, row in zip(week, rows):
         if row is None:
             continue
@@ -408,16 +517,15 @@ def _insert_health(conn, pet_id, unit, week, rows) -> None:
             "INSERT INTO health_logs (pet_id, log_date, logged_at, logged_by, weight, "
             "weight_unit, appetite, water, energy, potty, symptoms) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (pet_id, day.isoformat(), _utc_at(day, "20:30"), CARETAKER, weight, unit,
+            (pet_id, day.isoformat(), _utc_at(key, day, "20:30"), _caretaker(key), weight, unit,
              appetite, water, energy, potty, symptoms),
         )
 
 
 def seed(conn) -> None:
     rng = random.Random(42)
-    today = datetime.now(ZoneInfo(SAMPLE_TZ)).date()
-    week = [today - timedelta(days=7 - i) for i in range(7)]  # day 1..7
 
+    week = _week("miso")
     miso_id, miso_tasks = _insert_pet(conn, PETS[0])
     for i, day in enumerate(week, start=1):
         for title, task in miso_tasks.items():
@@ -425,7 +533,7 @@ def seed(conn) -> None:
                 continue
             if title == "Thyroid pill" and i == MISO_MISSED_DOSE_DAY:
                 continue
-            _insert_checkin(conn, rng, miso_id, task, day, "done", MISO_NOTES[title][i - 1])
+            _insert_checkin(conn, rng, "miso", miso_id, task, day, "done", MISO_NOTES[title][i - 1])
 
     a = MISO_APPOINTMENT
     appt_day = week[a["day"] - 1]
@@ -434,30 +542,23 @@ def seed(conn) -> None:
         "taken_by, bring, visit_notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (miso_id, a["kind"], a["title"], appt_day.isoformat(), a["time"], a["place_name"],
          a["address"], a["taken_by"], a["bring"], a["visit_notes"],
-         _utc_at(week[0], "07:00")),
+         _utc_at("miso", week[0], "07:00")),
     )
-    _insert_health(conn, miso_id, "lb", week, MISO_HEALTH)
-    for i, (d, hhmm, role, text) in enumerate(MISO_MESSAGES):
-        sent = _utc_at(week[d - 1], hhmm)
-        is_last = i == len(MISO_MESSAGES) - 1
-        conn.execute(
-            "INSERT INTO messages (pet_id, sender_role, sender_name, text, created_at, read_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (miso_id, role, OWNER_NAME if role == "owner" else CARETAKER, text, sent,
-             None if is_last else _utc_at(week[d - 1], hhmm, 4)),
-        )
+    _insert_health(conn, "miso", miso_id, "lb", week, MISO_HEALTH)
+    _insert_messages(conn, miso_id, "miso", week, MISO_MESSAGES)
 
+    week = _week("clover")
     clover_id, clover_tasks = _insert_pet(conn, PETS[1])
-    _insert_health(conn, clover_id, "lb", week, CLOVER_HEALTH)
+    _insert_health(conn, "clover", clover_id, "lb", week, CLOVER_HEALTH)
     for i, day in enumerate(week, start=1):
         for title, task in clover_tasks.items():
             if not task_runs_on(task, day):
                 continue
             if (i, title) == CLOVER_COULD_NOT[:2]:
-                _insert_checkin(conn, rng, clover_id, task, day, "could_not",
+                _insert_checkin(conn, rng, "clover", clover_id, task, day, "could_not",
                                 reason=CLOVER_COULD_NOT[2])
             else:
-                _insert_checkin(conn, rng, clover_id, task, day, "done", CLOVER_NOTES[title])
+                _insert_checkin(conn, rng, "clover", clover_id, task, day, "done", CLOVER_NOTES[title])
 
     for spec in EXTRA_PETS:  # after Miso and Clover, with their own random numbers
         seed_extra_pet(conn, spec)

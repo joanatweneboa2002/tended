@@ -17,6 +17,20 @@ ENERGY = ("low", "normal", "high")
 POTTY = ("normal", "off")
 
 SCHEMA = """
+-- Demo accounts (no passwords). See backend/users.py.
+CREATE TABLE IF NOT EXISTS users (
+    id        TEXT PRIMARY KEY,
+    name      TEXT NOT NULL,
+    role      TEXT NOT NULL CHECK (role IN ('owner', 'caretaker')),
+    city      TEXT NOT NULL DEFAULT '',
+    country   TEXT NOT NULL DEFAULT '',
+    flag      TEXT NOT NULL DEFAULT '',
+    timezone  TEXT NOT NULL,
+    note      TEXT NOT NULL DEFAULT ''
+);
+
+-- owner_timezone mirrors the owner's account; home_* is where the pet (and its
+-- caretaker) is. owner_id / caretaker_id decide who may see the pet.
 CREATE TABLE IF NOT EXISTS pets (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     name            TEXT NOT NULL,
@@ -30,6 +44,10 @@ CREATE TABLE IF NOT EXISTS pets (
     owner_timezone  TEXT NOT NULL DEFAULT 'America/New_York',
     home_timezone   TEXT NOT NULL DEFAULT 'America/New_York',
     caretaker_name  TEXT NOT NULL DEFAULT '',
+    owner_id        TEXT REFERENCES users(id),
+    caretaker_id    TEXT REFERENCES users(id),
+    home_city       TEXT NOT NULL DEFAULT '',
+    home_flag       TEXT NOT NULL DEFAULT '',
     is_sample       INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -201,6 +219,10 @@ MIGRATIONS = {
     "pets": [
         ("home_timezone", "TEXT NOT NULL DEFAULT 'America/New_York'"),
         ("caretaker_name", "TEXT NOT NULL DEFAULT ''"),
+        ("owner_id", "TEXT REFERENCES users(id)"),
+        ("caretaker_id", "TEXT REFERENCES users(id)"),
+        ("home_city", "TEXT NOT NULL DEFAULT ''"),
+        ("home_flag", "TEXT NOT NULL DEFAULT ''"),
     ],
     "tasks": [
         ("replaces_task_id", "INTEGER REFERENCES tasks(id)"),
@@ -237,6 +259,8 @@ def init_db() -> None:
                 if name not in existing:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
         conn.executescript(SCHEMA)
+        from backend.users import ensure_users  # (users imports db)
+        ensure_users(conn)
 
 
 def task_runs_on(task: sqlite3.Row | dict, day: date) -> bool:

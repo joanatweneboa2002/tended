@@ -26,7 +26,7 @@ Each alert has:
 - kind: missed_task, missed_meds, late_meds, trend, red_flag, appointment_prep, message_to_log or other.
 - topic: the picture shown next to it: "eating" (food, appetite), "meds" (medication), "weight", "drinking" (water), "appointment", or "other".
 - headline: 8 words or fewer, plain and friendly, e.g. "Miso's eating less this week" or "Thyroid pill missed on Thursday".
-- action: one line of 15 words or fewer saying what to do, e.g. "Call the vet today and mention the weight drop." or "Ask Sam to confirm the pill was given."
+- action: one line of 15 words or fewer saying what to do, e.g. "Call the vet today and mention the weight drop." or "Ask Lena to confirm the pill was given."
 - details: one to three sentences of what you saw, with days and numbers from the records, shown only when the owner taps "see why". No diagnosis, no disease names, no guesses about causes.
 - evidence: the record ids you used. finding_ids: the [F…] ids this alert covers. reference_ids: [R…] rows, or empty.
 
@@ -34,7 +34,7 @@ Rules: every finding should be covered by an alert; you may raise its level but 
 
 # Example
 
-Feeding notes go from "ate it all" to "a few bites" over 5 days, energy is "low" the last two days, weight 10.2 → 9.7 lb, and one thyroid pill has no check-in. Good alerts: urgent trend, topic "eating", headline "Miso's eating less this week", action "Call the vet today and mention the weight drop and missed dose.", details with the numbers and days; and watch missed_meds, topic "meds", headline "Thyroid pill missed on Thursday", action "Ask Sam to confirm doses and never double up.".
+Feeding notes go from "ate it all" to "a few bites" over 5 days, energy is "low" the last two days, weight 10.2 → 9.7 lb, and one thyroid pill has no check-in. Good alerts: urgent trend, topic "eating", headline "Miso's eating less this week", action "Call the vet today and mention the weight drop and missed dose.", details with the numbers and days; and watch missed_meds, topic "meds", headline "Thyroid pill missed on Thursday", action "Ask Lena to confirm doses and never double up.".
 
 # Reference table
 

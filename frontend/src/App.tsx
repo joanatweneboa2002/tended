@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type Pet, type Role } from './api'
+import { api, signedInAs, signIn, signOut, SIGNED_OUT, type Pet, type User } from './api'
 import { Appointments } from './Appointments'
 import { AgentActivity } from './AgentActivity'
 import { PawDoodle } from './Doodles'
@@ -8,11 +8,11 @@ import { Health } from './Health'
 import { Home, type Tab } from './Home'
 import { Messages } from './Messages'
 import { PetAvatar } from './PetAvatar'
+import { ProfileMenu } from './People'
 import { Profile, ProfileForm } from './Profile'
 import { Schedule } from './Schedule'
+import { Welcome } from './Welcome'
 
-const VIEW_KEY = 'tended.view'
-const PET_KEY = 'tended.petId'
 const UNREAD_POLL_MS = 5000
 
 const TABS: { id: Exclude<Tab, 'profile'>; label: string }[] = [
@@ -32,10 +32,51 @@ const PAGE_TITLE: Record<Tab, string> = {
   profile: 'Profile',
 }
 
+/** Who's using Tended? Remembered in the browser, so a refresh keeps you signed in. */
 export default function App() {
-  const [role, setRole] = useState<Role>(() => (localStorage.getItem(VIEW_KEY) === 'owner' ? 'owner' : 'caretaker'))
+  const [user, setUser] = useState<User | null | undefined>(signedInAs() ? undefined : null)
+
+  useEffect(() => {
+    if (!signedInAs()) return
+    api.me().then(setUser, () => {
+      signOut()
+      setUser(null)
+    })
+  }, [])
+  useEffect(() => {
+    const out = () => setUser(null) // the backend no longer knows this person
+    window.addEventListener(SIGNED_OUT, out)
+    return () => window.removeEventListener(SIGNED_OUT, out)
+  }, [])
+
+  if (user === undefined) return <div className="app"><p className="empty">Loading…</p></div>
+  if (user === null) {
+    return (
+      <Welcome
+        onPick={(u) => {
+          signIn(u.id)
+          setUser(u)
+        }}
+      />
+    )
+  }
+  return (
+    <SignedIn
+      key={user.id}
+      user={user}
+      onSwitch={() => {
+        signOut()
+        setUser(null)
+      }}
+    />
+  )
+}
+
+function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
+  const role = user.role
+  const petKey = `tended.petId.${user.id}`
   const [pets, setPets] = useState<Pet[] | null>(null)
-  const [petId, setPetId] = useState<number | null>(() => Number(localStorage.getItem(PET_KEY)) || null)
+  const [petId, setPetId] = useState<number | null>(() => Number(localStorage.getItem(petKey)) || null)
   const [tab, setTab] = useState<Tab>('home')
   const [adding, setAdding] = useState(false)
   const [unread, setUnread] = useState(0)
@@ -59,10 +100,9 @@ export default function App() {
   useEffect(() => {
     loadPets()
   }, [loadPets])
-  useEffect(() => localStorage.setItem(VIEW_KEY, role), [role])
   useEffect(() => {
-    if (petId !== null) localStorage.setItem(PET_KEY, String(petId))
-  }, [petId])
+    if (petId !== null) localStorage.setItem(petKey, String(petId))
+  }, [petId, petKey])
 
   // Unread badge: not live, just checked every few seconds.
   useEffect(() => {
@@ -91,7 +131,7 @@ export default function App() {
   }
 
   const resetSamples = async () => {
-    if (!confirm('Re-create the two sample pets with a fresh sample week? Changes to them will be lost. Your own pets are not touched.')) return
+    if (!confirm('Re-create the sample pets with a fresh sample week? Changes to them will be lost. Pets you added are not touched.')) return
     await api.resetSamples()
     await loadPets()
     go('home')
@@ -102,25 +142,24 @@ export default function App() {
       <header className="app-top">
         <div className="topbar">
           <div className="brand">
-            <span className="brand-mark" aria-hidden>
+            <span className="brand-mark" aria-label="Tended">
               <PawDoodle size={20} />
             </span>
-            <span className="brand-name">Tended</span>
+            <p className="hello">
+              <b>Hi {user.name}</b>
+              <span>
+                {user.city} {user.flag}
+              </span>
+            </p>
           </div>
           <div className="topbar-right">
             {role === 'owner' && pet && <AgentActivity pet={pet} open={activityOpen} onOpenChange={setActivityOpen} />}
-            <div className="view-switch" role="tablist" aria-label="View">
-              {(['owner', 'caretaker'] as const).map((v) => (
-                <button key={v} role="tab" aria-selected={role === v} className={role === v ? 'active' : ''} onClick={() => setRole(v)}>
-                  {v === 'owner' ? 'Owner' : 'Caretaker'}
-                </button>
-              ))}
-            </div>
             <EmergencyButton petId={petId} />
+            <ProfileMenu user={user} onAddPet={role === 'owner' ? () => setAdding(true) : undefined} onSwitch={onSwitch} />
           </div>
         </div>
 
-        {pets && pets.length > 0 && (
+        {pets && pets.length > 1 && (
           <nav className="pet-pills" aria-label="Your pets">
             {pets.map((p) => (
               <button
@@ -152,9 +191,13 @@ export default function App() {
             <div className="page-head-text">
               <h1>{PAGE_TITLE[tab]}</h1>
               <p>
-                {pet.name}
-                {[pet.species, pet.breed].filter(Boolean).length > 0 && ` · ${[pet.species, pet.breed].filter(Boolean).join(' · ')}`}
+                <b>{pet.name}</b> {role === 'owner' ? 'is' : 'is with you'} in {pet.home_city || 'their home'} {pet.home_flag}
                 {pet.is_sample && <span className="badge sample">Sample</span>}
+              </p>
+              <p className="small">
+                {role === 'owner'
+                  ? `You're in ${user.city} ${user.flag}`
+                  : `${pet.owner_name || 'The owner'} is in ${pet.owner_city || 'another city'} ${pet.owner_flag}`}
               </p>
             </div>
             <button className="page-head-photo" onClick={() => go('profile')} aria-label={`Open ${pet.name}'s profile`}>
@@ -199,21 +242,21 @@ export default function App() {
         ) : (
           pets && (
             <div className="empty card">
-              <p>No pets yet.</p>
-              <div className="form-actions center">
-                <button
-                  className="btn primary"
-                  onClick={() => {
-                    setRole('owner')
-                    setAdding(true)
-                  }}
-                >
-                  Add a pet
-                </button>
-                <button className="btn ghost" onClick={resetSamples}>
-                  Load sample pets
-                </button>
-              </div>
+              {role === 'owner' ? (
+                <>
+                  <p>No pets yet.</p>
+                  <div className="form-actions center">
+                    <button className="btn primary" onClick={() => setAdding(true)}>
+                      Add a pet
+                    </button>
+                    <button className="btn ghost" onClick={resetSamples}>
+                      Load sample pets
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p>No pets yet. When an owner picks you as their caretaker, their pet shows up here.</p>
+              )}
             </div>
           )
         )}
