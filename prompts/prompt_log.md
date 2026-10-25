@@ -478,3 +478,9 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > add a safety test: an owner trying to check in a task is blocked
 >
 > run the safety tests, then commit and push.
+
+---
+
+## Prompt 22: Commit and push
+
+> commit and push everything to GitHub. then tell me the latest commit message so I know it’s up to date. add this prompt to my prompt log.
