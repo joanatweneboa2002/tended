@@ -220,3 +220,27 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > push it to a new public GitHub repo called tended and give me the link
 >
 > add this prompt to my prompt log.
+
+---
+
+## Prompt 11: Default model and both keys (OpenAI or Portkey)
+
+> fix two things so staff can run Tended from a fresh clone without my settings:
+>
+> default model: if OPENAI_MODEL isn’t set anywhere, use gpt-5.6-luna instead of stopping with an error. my Final Project/.env with OPENAI_MODEL won’t be on GitHub, so the app has to work without it.
+> support both keys, since staff may only have the course key. I’m using my OpenAI key, so that stays the main one:
+> if OPENAI_API_KEY is found, use OpenAI with OPENAI_MODEL (or the default)
+> if only PORTKEY_API_KEY is found, use Portkey with base url https://api.portkey.ai/v1 and the model gpt-6-luna
+> if both are found, use OpenAI
+> if neither is found, the app still opens, but the AI buttons show a friendly message saying which key to add
+> still look for .env in the repo folder first, then one folder up
+>
+> also:
+>
+> log the provider (openai or portkey) and model in token_log.csv for every call
+> update .env.example to show both options with no real values
+> update the README setup section to explain both options in plain words
+> print a startup message in the backend terminal saying which provider and model it’s using
+> commit and push to GitHub when it works
+>
+> add this prompt to my prompt log.

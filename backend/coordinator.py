@@ -14,6 +14,7 @@ from backend import daily_summary, watchdog
 from backend.activity import log_event
 from backend.budget import BudgetStop, RunBudget
 from backend.common import get_pet_row, utc_now_iso
+from backend.config import AIUnavailable, ai_provider
 from backend.db import connect
 
 router = APIRouter(prefix="/api")
@@ -37,6 +38,10 @@ def _out(row) -> dict | None:
 
 @router.post("/pets/{pet_id}/check")
 def run_check(pet_id: int) -> dict:
+    try:
+        ai_provider()
+    except AIUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
     now = utc_now_iso()
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)

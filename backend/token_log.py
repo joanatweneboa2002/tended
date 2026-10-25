@@ -1,7 +1,7 @@
 """Append one row per AI call to data/token_log.csv.
 
-Columns: timestamp (UTC, ISO 8601), agent, model, input_tokens, cached_tokens,
-output_tokens, duration_ms, run_id. `cached_tokens` is the part of input_tokens
+Columns: timestamp (UTC, ISO 8601), agent, provider (openai | portkey), model,
+input_tokens, cached_tokens, output_tokens, duration_ms, run_id. `cached_tokens` is the part of input_tokens
 the provider served from its prompt cache. `run_id` groups the calls of one
 agent run (one setup conversation, one Ask Tended question, one Run check);
 older rows written before it existed have it blank.
@@ -17,6 +17,7 @@ from backend.config import TOKEN_LOG_PATH
 COLUMNS = [
     "timestamp",
     "agent",
+    "provider",
     "model",
     "input_tokens",
     "cached_tokens",
@@ -44,6 +45,8 @@ def ensure_token_log() -> None:
             w.writerow(COLUMNS)
             for r in rows[1:]:
                 rec = dict(zip(old, r))
+                if "provider" not in old:
+                    rec["provider"] = "openai"  # every call before Portkey support went to OpenAI
                 w.writerow([rec.get(c, "") for c in COLUMNS])
 
 
@@ -55,6 +58,7 @@ def log_tokens(
     output_tokens: int,
     duration_ms: int,
     run_id: int | str | None = None,
+    provider: str = "openai",
 ) -> None:
     with _lock:
         ensure_token_log()
@@ -63,6 +67,7 @@ def log_tokens(
                 [
                     datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     agent,
+                    provider,
                     model,
                     int(input_tokens),
                     int(cached_tokens),

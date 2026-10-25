@@ -27,13 +27,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")  # ✓ ✗ ⚠️ on Windows consoles
 sys.path.insert(0, str(REPO))
 
-from backend.config import (  # noqa: E402
-    PRICE_CACHED_INPUT_PER_M,
-    PRICE_INPUT_PER_M,
-    PRICE_OUTPUT_PER_M,
-    PRICES_CONFIRMED,
-    TOKEN_LOG_PATH,
-)
+from backend.config import MODEL_PRICES, PRICES_CONFIRMED, TOKEN_LOG_PATH  # noqa: E402
 
 DAYS = 30
 CHECKS_PER_DAY = 1
@@ -45,10 +39,16 @@ AGENT_NAME = {"setup_agent": "Setup agent", "caretaker_helper": "Ask Tended", "w
               "daily_summary": "Daily summary"}
 
 
-def cost(inp: float, cached: float, out: float, use_cache: bool = True) -> float:
+def row_cost(r: dict, use_cache: bool = True) -> float:
+    """Cost of one logged call at its own model's price (0 if the model has no price)."""
+    prices = MODEL_PRICES.get(r["model"])
+    if prices is None:
+        return 0.0
+    p_in, p_cached, p_out = prices
+    inp, cached, out = r["input_tokens"], r["cached_tokens"], r["output_tokens"]
     if use_cache:
-        return ((inp - cached) * PRICE_INPUT_PER_M + cached * PRICE_CACHED_INPUT_PER_M + out * PRICE_OUTPUT_PER_M) / 1e6
-    return (inp * PRICE_INPUT_PER_M + out * PRICE_OUTPUT_PER_M) / 1e6
+        return ((inp - cached) * p_in + cached * p_cached + out * p_out) / 1e6
+    return (inp * p_in + out * p_out) / 1e6
 
 
 def load_runs(path: Path) -> tuple[dict[str, list[dict]], list[dict]]:
@@ -56,6 +56,7 @@ def load_runs(path: Path) -> tuple[dict[str, list[dict]], list[dict]]:
         rows = [r for r in csv.DictReader(f) if r.get("agent")]
     for r in rows:
         r["t"] = datetime.fromisoformat(r["timestamp"]).astimezone(timezone.utc)
+        r["provider"] = r.get("provider") or "openai"
         for k in ("input_tokens", "cached_tokens", "output_tokens", "duration_ms"):
             r[k] = int(r[k] or 0)
     groups: dict[tuple, list[dict]] = defaultdict(list)
@@ -79,6 +80,8 @@ def load_runs(path: Path) -> tuple[dict[str, list[dict]], list[dict]]:
             "input": sum(c["input_tokens"] for c in calls),
             "cached": sum(c["cached_tokens"] for c in calls),
             "output": sum(c["output_tokens"] for c in calls),
+            "cost": sum(row_cost(c) for c in calls),
+            "cost_nocache": sum(row_cost(c, use_cache=False) for c in calls),
         })
     return runs, rows
 
@@ -109,9 +112,13 @@ def main() -> int:
         rs = runs[a]
         i, c, o = avg(rs, "input"), avg(rs, "cached"), avg(rs, "output")
         per_agent[a] = {"runs": len(rs), "calls": sum(r["calls"] for r in rs), "input": i, "cached": c, "output": o,
-                        "cost": cost(i, c, o), "cost_nocache": cost(i, c, o, use_cache=False)}
+                        "cost": avg(rs, "cost"), "cost_nocache": avg(rs, "cost_nocache")}
     all_runs = [r for a in agents for r in runs[a]]
     ti, tc, to = avg(all_runs, "input"), avg(all_runs, "cached"), avg(all_runs, "output")
+    unpriced = sorted({r["model"] for r in rows if r["model"] not in MODEL_PRICES})
+    usage = defaultdict(int)
+    for r in rows:
+        usage[(r["provider"], r["model"])] += 1
 
     get = lambda a, k: per_agent.get(a, {}).get(k, 0.0)  # noqa: E731
     check_cost = get("watchdog", "cost") + get("daily_summary", "cost")
@@ -120,8 +127,8 @@ def main() -> int:
     user_month = DAYS * (CHECKS_PER_DAY * check_cost + QUESTIONS_PER_DAY * q_cost)
     user_month_nocache = DAYS * (CHECKS_PER_DAY * check_nocache + QUESTIONS_PER_DAY * q_nocache)
 
-    actual = sum(cost(r["input_tokens"], r["cached_tokens"], r["output_tokens"]) for r in rows)
-    nocache = sum(cost(r["input_tokens"], r["cached_tokens"], r["output_tokens"], False) for r in rows)
+    actual = sum(row_cost(r) for r in rows)
+    nocache = sum(row_cost(r, use_cache=False) for r in rows)
     cached_share = sum(r["cached_tokens"] for r in rows) / max(1, sum(r["input_tokens"] for r in rows))
     first, last = min(r["t"] for r in rows), max(r["t"] for r in rows)
     models = sorted({r["model"] for r in rows})
@@ -130,8 +137,11 @@ def main() -> int:
         "# Tended cost report\n",
         f"- **Generated:** {datetime.now().astimezone():%Y-%m-%d %H:%M %Z} from `data/token_log.csv` "
         f"({len(rows)} AI calls, {first:%b %d %H:%M}–{last:%b %d %H:%M} UTC, model: {', '.join(models)})",
-        f"- **Prices (USD per 1M tokens):** input ${PRICE_INPUT_PER_M:.2f} · cached input ${PRICE_CACHED_INPUT_PER_M:.2f} · "
-        f"output ${PRICE_OUTPUT_PER_M:.2f}"
+        "- **Calls by provider and model:** " + ", ".join(f"{p} / {m}: {n}" for (p, m), n in sorted(usage.items())),
+        "- **Prices (USD per 1M tokens, input · cached · output):** "
+        + "; ".join(f"{m}: ${a:.2f} · ${b:.2f} · ${c:.2f}" for m, (a, b, c) in MODEL_PRICES.items())
+        + (f" ⚠️ No price set for {', '.join(unpriced)}: those calls are counted in the token averages but "
+           "not in the dollar amounts (add them to `MODEL_PRICES` in `backend/config.py`)." if unpriced else "")
         + ("" if PRICES_CONFIRMED else " ⚠️ **not yet confirmed**: check them on OpenAI's pricing page and set "
            "`PRICES_CONFIRMED = True` in `backend/config.py`"),
         f"- **Assumptions:** {DAYS} days a month; the owner runs one check a day (watchdog + daily summary); "
@@ -145,7 +155,7 @@ def main() -> int:
         md.append(f"| {AGENT_NAME.get(a, a)} | {p['runs']} | {p['calls']} | {p['input']:,.0f} | {p['cached']:,.0f} | "
                   f"{p['output']:,.0f} | {money(p['cost'])} | {money(p['cost_nocache'])} |")
     md.append(f"| **All runs** | {len(all_runs)} | {len(rows)} | {ti:,.0f} | {tc:,.0f} | {to:,.0f} | "
-              f"{money(cost(ti, tc, to))} | {money(cost(ti, tc, to, False))} |")
+              f"{money(avg(all_runs, 'cost'))} | {money(avg(all_runs, 'cost_nocache'))} |")
     md += [
         f"\nOne **Run check** (watchdog + daily summary) costs about **{money(check_cost)}**; one **Ask Tended** "
         f"question about **{money(q_cost)}**.",

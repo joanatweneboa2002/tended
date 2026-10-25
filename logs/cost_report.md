@@ -1,7 +1,8 @@
 # Tended cost report
 
-- **Generated:** 2026-10-25 12:42 EDT from `data/token_log.csv` (28 AI calls, Oct 25 14:43–Oct 25 15:17 UTC, model: gpt-5.6-luna)
-- **Prices (USD per 1M tokens):** input $0.20 · cached input $0.02 · output $1.20 ⚠️ **not yet confirmed**: check them on OpenAI's pricing page and set `PRICES_CONFIRMED = True` in `backend/config.py`
+- **Generated:** 2026-10-25 13:29 EDT from `data/token_log.csv` (28 AI calls, Oct 25 14:43–Oct 25 15:17 UTC, model: gpt-5.6-luna)
+- **Calls by provider and model:** openai / gpt-5.6-luna: 28
+- **Prices (USD per 1M tokens, input · cached · output):** gpt-5.6-luna: $0.20 · $0.02 · $1.20 ⚠️ **not yet confirmed**: check them on OpenAI's pricing page and set `PRICES_CONFIRMED = True` in `backend/config.py`
 - **Assumptions:** 30 days a month; the owner runs one check a day (watchdog + daily summary); the caretaker asks 3 Ask Tended questions a day.
 
 ## Average tokens and cost per run

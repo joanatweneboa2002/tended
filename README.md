@@ -11,7 +11,7 @@ Tended is a web app for when a pet owner travels and a friend or sitter looks af
 - **Python 3.12 or newer** (tested with 3.13): https://www.python.org/downloads/. On Windows, tick **"Add python.exe to PATH"** in the installer.
 - **Node.js 22 LTS** (20.19+ also works): https://nodejs.org
 - **Git**: https://git-scm.com/downloads (Mac: run `git --version` once and accept the install prompt)
-- An **OpenAI API key**: https://platform.openai.com/api-keys
+- An **API key**: your own OpenAI key (https://platform.openai.com/api-keys) or the course Portkey key
 
 Check them in a new terminal (Mac: Terminal; Windows: PowerShell):
 
@@ -54,22 +54,26 @@ npm install
 cd ..
 ```
 
-### 5. Add your keys in a `.env` file
+### 5. Add an API key in a `.env` file
 
-Copy the example file and fill in the two values:
+Tended works with either of two keys. You only need one.
+
+| You have | Put this in `.env` | Tended uses |
+|---|---|---|
+| **Your own OpenAI key** (main option) | `OPENAI_API_KEY=sk-...` | OpenAI, model `gpt-5.6-luna` (or whatever you set in `OPENAI_MODEL`) |
+| **The course Portkey key** | `PORTKEY_API_KEY=...` | the Portkey gateway (`https://api.portkey.ai/v1`), model `gpt-6-luna` |
+
+Copy the example file, then fill in your key:
 
 ```bash
 cp .env.example .env        # Windows: copy .env.example .env
 ```
 
-```
-OPENAI_API_KEY=sk-...your key...
-OPENAI_MODEL=gpt-5.6-luna
-```
-
-- **Where `.env` can go:** the backend looks for `.env` in the repo folder (`tended/.env`) first, then one folder up (next to the `tended` folder). If a key is in both, the repo folder's value wins. Keep the file out of git; `.gitignore` already excludes it.
-- **`OPENAI_MODEL`:** any OpenAI model your key can use that supports structured outputs. The project uses `gpt-5.6-luna`.
-- **Without a key:** everything else still works. Run check and Set up with AI show an error, and Ask Tended says the AI is unavailable. Its emergency override (e.g. "she ate a lily leaf") still works, because it doesn't use AI.
+- **Both keys set:** Tended uses OpenAI.
+- **No key:** the app still opens and everything that doesn't need AI works. The AI buttons (Run check, Set up with AI, Ask Tended) say which key to add. Ask Tended's emergency screen ("she ate a lily leaf") still works, because it doesn't use AI.
+- **`OPENAI_MODEL` is optional:** leave it blank for the default, `gpt-5.6-luna`.
+- **Where `.env` can go:** in the `tended` folder, or one folder up (next to the `tended` folder). Tended checks the `tended` folder first; if a key is in both places, that one wins. `.env` is in `.gitignore`, so it never gets committed.
+- **After changing `.env`:** restart the backend.
 
 ### 6. Start it (two terminals)
 
@@ -85,6 +89,14 @@ OPENAI_MODEL=gpt-5.6-luna
 ```bash
 cd frontend
 npm run dev
+```
+
+When the backend starts it prints which AI it's using, for example:
+
+```
+Tended AI: using OpenAI, model gpt-5.6-luna (default; set OPENAI_MODEL to change). .env files read: …
+Tended AI: using Portkey (https://api.portkey.ai/v1), model gpt-6-luna. .env files read: …
+Tended AI: OFF (no OPENAI_API_KEY or PORTKEY_API_KEY). .env files read: …
 ```
 
 Open **http://localhost:5173**. Stop either one with Ctrl+C. The backend runs as a single process without auto-reload, so restart it after changing Python code.
@@ -141,7 +153,7 @@ The latest results are committed in [`logs/safety_results.md`](logs/safety_resul
 
 - **Untrusted text:** messages, notes and symptoms are treated as data, never instructions. Text that tries to instruct the AI is labeled in the model input and shown as **Suspicious input** in the activity panel.
 - **Prompt caching:** each agent has one fixed system prompt in `backend/prompts/`. Everything that changes goes after it, so repeat calls are mostly cached.
-- **Token log:** every AI call is logged to `data/token_log.csv` (agent, model, input/cached/output tokens, time, run id).
+- **Token log:** every AI call is logged to `data/token_log.csv` (agent, provider, model, input/cached/output tokens, time, run id).
 - **Meds rule:** once a dose is marked given for a time slot, a second one is blocked in code and by a unique index in the database. This includes a task that replaced an earlier task on the same day.
 - **Time zones:** schedule and appointment times are in the pet's home time. The caretaker sees home time; the owner sees their own time, with home time underneath.
 
@@ -163,7 +175,7 @@ tended/
 │   ├── ai.py, token_log.py the one place AI calls go through, and their log
 │   ├── prompts/            fixed system prompts, one per agent
 │   ├── seed.py             sample pets Miso and Clover
-│   └── config.py           .env lookup, limits, model prices
+│   └── config.py           .env lookup, OpenAI/Portkey choice, limits, model prices
 ├── frontend/           React + Vite + TypeScript
 ├── data/
 │   ├── pet_reference.csv   88 vet reference rows (Merck Veterinary Manual, ASPCA)

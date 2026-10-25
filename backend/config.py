@@ -6,6 +6,7 @@ and the folder above only fills in keys the repo's .env doesn't set.
 """
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,23 +25,63 @@ for _env in ENV_FILES:
         LOADED_ENV_FILES.append(_env)
 
 
-def openai_api_key() -> str:
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError(
-            "OPENAI_API_KEY is not set. Add it to .env in this folder or one folder up."
-        )
-    return key
+# ---- which AI provider to use -------------------------------------------
+# OpenAI is the main option; Portkey (the course key) is the fallback.
+#   OPENAI_API_KEY set           -> OpenAI, model = OPENAI_MODEL or DEFAULT_OPENAI_MODEL
+#   only PORTKEY_API_KEY set     -> Portkey gateway, model = PORTKEY_MODEL
+#   both set                     -> OpenAI
+#   neither                      -> the app runs; AI features explain which key to add
+DEFAULT_OPENAI_MODEL = "gpt-5.6-luna"
+PORTKEY_BASE_URL = "https://api.portkey.ai/v1"
+PORTKEY_MODEL = "gpt-6-luna"
+
+NO_KEY_MESSAGE = (
+    "AI is off because no API key was found. Add OPENAI_API_KEY (your own OpenAI key) or "
+    "PORTKEY_API_KEY (the course Portkey key) to a .env file in the tended folder or one "
+    "folder up, then restart the backend."
+)
 
 
-def openai_model() -> str:
-    """Read on every call, so changing OPENAI_MODEL takes effect on restart."""
-    model = os.getenv("OPENAI_MODEL", "").strip()
-    if not model:
-        raise RuntimeError(
-            "OPENAI_MODEL is not set. Add e.g. OPENAI_MODEL=<model name> to your .env."
-        )
-    return model
+class AIUnavailable(RuntimeError):
+    """No usable API key: shown to the user as a friendly message."""
+
+
+@dataclass(frozen=True)
+class AIProvider:
+    name: str  # "openai" | "portkey"
+    api_key: str
+    model: str
+    base_url: str | None = None
+    model_is_default: bool = False
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {"x-portkey-api-key": self.api_key} if self.name == "portkey" else {}
+
+
+def ai_provider() -> AIProvider:
+    """Read on every call, so editing .env takes effect after a backend restart."""
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    portkey_key = os.getenv("PORTKEY_API_KEY", "").strip()
+    if openai_key:
+        model = os.getenv("OPENAI_MODEL", "").strip()
+        return AIProvider("openai", openai_key, model or DEFAULT_OPENAI_MODEL, model_is_default=not model)
+    if portkey_key:
+        return AIProvider("portkey", portkey_key, PORTKEY_MODEL, base_url=PORTKEY_BASE_URL)
+    raise AIUnavailable(NO_KEY_MESSAGE)
+
+
+def ai_status_line() -> str:
+    """One line for the backend terminal at startup."""
+    where = ", ".join(str(p) for p in LOADED_ENV_FILES) or "no .env file found"
+    try:
+        p = ai_provider()
+    except AIUnavailable:
+        return f"Tended AI: OFF (no OPENAI_API_KEY or PORTKEY_API_KEY). .env files read: {where}"
+    if p.name == "openai":
+        model = f"{p.model} (default; set OPENAI_MODEL to change)" if p.model_is_default else f"{p.model} (from OPENAI_MODEL)"
+        return f"Tended AI: using OpenAI, model {model}. .env files read: {where}"
+    return f"Tended AI: using Portkey ({p.base_url}), model {p.model}. .env files read: {where}"
 
 
 # ---- limits for one "Run check" (coordinator) ----------------------------
@@ -68,3 +109,10 @@ PRICE_INPUT_PER_M = 0.20
 PRICE_CACHED_INPUT_PER_M = 0.02
 PRICE_OUTPUT_PER_M = 1.20
 PRICES_CONFIRMED = False
+
+# Prices per model (input, cached input, output), USD per 1M tokens. Calls to
+# a model that isn't listed here (e.g. gpt-6-luna via Portkey) are counted in
+# the token averages but left out of the dollar totals, with a note.
+MODEL_PRICES = {
+    "gpt-5.6-luna": (PRICE_INPUT_PER_M, PRICE_CACHED_INPUT_PER_M, PRICE_OUTPUT_PER_M),
+}

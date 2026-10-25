@@ -11,7 +11,6 @@ after a dose was given can't open a second slot that day. The database has
 a unique index (one_dose_per_slot) as a second line of defence.
 """
 
-import os
 import sqlite3
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -44,15 +43,25 @@ from backend.common import (
     utc_now_iso,
     with_photo_url,
 )
-from backend.config import LOADED_ENV_FILES, PHOTOS_DIR
+from backend.config import LOADED_ENV_FILES, PHOTOS_DIR, AIUnavailable, ai_provider, ai_status_line
 from backend.db import connect, init_db, task_runs_on
 from backend.schemas import TaskIn, insert_task
 from backend.seed import reset_sample_data, seed_if_empty
 from backend.token_log import ensure_token_log
 
 
+def _ai_status() -> dict:
+    """Which AI provider/model is in use. Never includes the key."""
+    try:
+        p = ai_provider()
+        return {"ai_ready": True, "ai_provider": p.name, "ai_model": p.model, "ai_message": None}
+    except AIUnavailable as exc:
+        return {"ai_ready": False, "ai_provider": None, "ai_model": None, "ai_message": str(exc)}
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    print(ai_status_line(), flush=True)
     init_db()
     seed_if_empty()
     ensure_token_log()
@@ -133,8 +142,7 @@ def status() -> dict:
     """What the backend sees. Never returns the key itself."""
     return {
         "ok": True,
-        "openai_key_set": bool(os.getenv("OPENAI_API_KEY", "").strip()),
-        "openai_model": os.getenv("OPENAI_MODEL", "").strip() or None,
+        **_ai_status(),
         "env_files_loaded": [str(p) for p in LOADED_ENV_FILES],
     }
 

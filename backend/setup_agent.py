@@ -27,7 +27,7 @@ from backend.activity import log_event
 from backend.ai import ask_structured
 from backend.appointments import AppointmentIn
 from backend.common import TIME_PATTERN, get_pet_row, home_now, utc_now_iso
-from backend.config import REPO_DIR
+from backend.config import REPO_DIR, AIUnavailable, ai_provider
 from backend.db import WEEKDAYS, connect
 from backend.schemas import TaskIn, insert_task
 
@@ -462,6 +462,10 @@ class ApproveBody(BaseModel):
 
 @router.post("/pets/{pet_id}/setup-agent", status_code=201)
 def start_run(pet_id: int, body: StartBody) -> dict:
+    try:
+        ai_provider()
+    except AIUnavailable as exc:
+        raise HTTPException(503, str(exc)) from None
     instructions = body.instructions.strip()
     now = utc_now_iso()
     with connect() as conn:

@@ -19,7 +19,7 @@ from typing import TypeVar
 from openai import OpenAI
 from pydantic import BaseModel
 
-from backend.config import openai_api_key, openai_model
+from backend.config import AIProvider, ai_provider
 from backend.token_log import log_tokens, usage_counts
 
 T = TypeVar("T", bound=BaseModel)
@@ -34,16 +34,18 @@ class CallStats:
     duration_ms: int
 
 
-def client() -> OpenAI:
-    return OpenAI(api_key=openai_api_key())
+def client(provider: AIProvider) -> OpenAI:
+    """OpenAI directly, or the Portkey gateway (same SDK, different base URL + header)."""
+    return OpenAI(api_key=provider.api_key, base_url=provider.base_url, default_headers=provider.headers or None)
 
 
-def _log(agent: str, model: str, response, started: float, run_id=None) -> CallStats:
+def _log(agent: str, provider: AIProvider, model: str, response, started: float, run_id=None) -> CallStats:
     duration_ms = round((time.perf_counter() - started) * 1000)
     input_tokens, cached_tokens, output_tokens = usage_counts(response.usage)
     stats = CallStats(response.model or model, input_tokens, cached_tokens, output_tokens, duration_ms)
     log_tokens(
         agent=agent,
+        provider=provider.name,
         model=stats.model,
         input_tokens=input_tokens,
         cached_tokens=cached_tokens,
@@ -56,14 +58,15 @@ def _log(agent: str, model: str, response, started: float, run_id=None) -> CallS
 
 def ask(agent: str, instructions: str, user_input: str, model: str | None = None) -> str:
     """Send one request, log its tokens, and return the text reply."""
-    model = model or openai_model()
+    provider = ai_provider()  # raises AIUnavailable with a friendly message if no key
+    model = model or provider.model
     started = time.perf_counter()
-    response = client().responses.create(
+    response = client(provider).responses.create(
         model=model,
         instructions=instructions,
         input=user_input,
     )
-    _log(agent, model, response, started)
+    _log(agent, provider, model, response, started)
     return response.output_text
 
 
@@ -80,9 +83,10 @@ def ask_structured(
     Returns the parsed object and the call's token/time stats (already logged).
     Raises ValueError if the model refused or returned nothing usable.
     """
-    model = model or openai_model()
+    provider = ai_provider()  # raises AIUnavailable with a friendly message if no key
+    model = model or provider.model
     started = time.perf_counter()
-    response = client().responses.parse(
+    response = client(provider).responses.parse(
         model=model,
         instructions=instructions,
         input=user_input,
@@ -90,7 +94,7 @@ def ask_structured(
         prompt_cache_key=f"tended-{agent}",
         store=False,
     )
-    stats = _log(agent, model, response, started, run_id)
+    stats = _log(agent, provider, model, response, started, run_id)
     parsed = response.output_parsed
     if parsed is None:
         raise ValueError("The model didn't return a usable answer.")
