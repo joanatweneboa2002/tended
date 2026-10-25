@@ -13,7 +13,10 @@ is checked here:
 - `role` / `sender_role` can't be faked: they must match the person's role
 """
 
+import re
+import secrets
 import sqlite3
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, HTTPException, Request
 
@@ -153,7 +156,7 @@ _OWNING_PET = {
     "run_id": "SELECT pet_id FROM agent_runs WHERE id = ?",
     "sid": "SELECT pet_id FROM log_suggestions WHERE id = ?",
 }
-_OPEN = {"/api/status", "/api/users"}
+_OPEN = {"/api/status", "/api/users", "/api/join-pet"}
 
 
 def require_pet(conn: sqlite3.Connection, user: sqlite3.Row, pet_id: int) -> None:
@@ -165,7 +168,9 @@ def require_pet(conn: sqlite3.Connection, user: sqlite3.Row, pet_id: int) -> Non
 
 def guard(request: Request) -> None:
     """Runs before every API route (see main.py)."""
-    if request.url.path in _OPEN or not request.url.path.startswith("/api/"):
+    path = request.url.path
+    # open: status, the people list, and joining with an invite code (the code is the key)
+    if path in _OPEN or path.startswith("/api/invites/") or not path.startswith("/api/"):
         return
     user = current_user(request)
     request.state.user = user
@@ -198,3 +203,27 @@ def me(request: Request) -> sqlite3.Row:
 
 
 Me = Depends(me)
+
+
+def valid_zone(tz: str) -> str:
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(422, f"Unknown time zone '{tz}'.") from None
+    return tz
+
+
+def new_user(conn, name: str, role: str, city: str, tz: str, created_by: str | None = None,
+              photo: str | None = None) -> sqlite3.Row:
+    from backend.common import utc_now_iso
+    name, city = name.strip(), city.strip()
+    if not (1 <= len(name) <= 40) or not (1 <= len(city) <= 60):
+        raise HTTPException(422, "Please give a name (up to 40 letters) and a city.")
+    uid = f"{re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')[:20] or 'user'}-{secrets.token_hex(3)}"
+    flag, country = place_for_zone(valid_zone(tz))
+    conn.execute(
+        "INSERT INTO users (id, name, role, city, country, flag, timezone, photo_path, is_sample, created_by, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
+        (uid, name, role, city, country, flag, tz, photo, created_by, utc_now_iso()),
+    )
+    return conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()

@@ -392,6 +392,37 @@ export const signedInAs = () => localStorage.getItem(USER_KEY)
 export const signIn = (id: string) => localStorage.setItem(USER_KEY, id)
 export const signOut = () => localStorage.removeItem(USER_KEY)
 
+// People who joined on this device, for "Already on Tended? Pick your profile".
+const JOINED_KEY = 'tended.joinedHere'
+export const joinedHere = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(JOINED_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+export const rememberJoined = (id: string) =>
+  localStorage.setItem(JOINED_KEY, JSON.stringify([...joinedHere().filter((x) => x !== id), id]))
+export const forgetJoined = (id: string) => localStorage.setItem(JOINED_KEY, JSON.stringify(joinedHere().filter((x) => x !== id)))
+
+export interface Invite {
+  code: string
+  pet_name: string
+  caretaker_name: string
+  expires_at: string
+}
+
+/** What an invite code is for, before it's used. */
+export interface InviteCheck {
+  pet_name: string
+  pet_photo_url: string | null
+  home_city: string
+  home_flag: string
+  owner_name: string
+  caretaker_name: string
+  caretaker_city: string
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   const user = signedInAs()
@@ -435,9 +466,18 @@ export const api = {
     return request<User>('/api/users', { method: 'POST', body: form })
   },
   deleteMe: () => request<void>('/api/me', { method: 'DELETE' }),
+  createInvite: (petId: number, c: { name: string; city: string }) =>
+    request<Invite>(`/api/pets/${petId}/invites`, json('POST', c)),
+  checkInvite: (code: string) => request<InviteCheck>(`/api/invites/${encodeURIComponent(code.trim())}`),
+  joinPet: (p: { code: string; name: string; city: string; photo: File | null }) => {
+    const form = new FormData()
+    form.append('code', p.code.trim())
+    form.append('name', p.name)
+    form.append('city', p.city)
+    if (p.photo) form.append('photo', p.photo)
+    return request<User>('/api/join-pet', { method: 'POST', body: form })
+  },
   myCaretakers: () => request<User[]>('/api/my-caretakers'),
-  addCaretaker: (petId: number, c: { name: string; city: string }) =>
-    request<Pet>(`/api/pets/${petId}/caretaker`, json('POST', c)),
   pets: () => request<Pet[]>('/api/pets'),
   createPet: (p: PetInput) => request<Pet>('/api/pets', json('POST', p)),
   updatePet: (id: number, p: PetInput) => request<Pet>(`/api/pets/${id}`, json('PUT', p)),

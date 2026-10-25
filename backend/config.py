@@ -104,11 +104,13 @@ TOKEN_BUDGET_PER_RUN = _int_env("TENDED_TOKEN_BUDGET_PER_RUN", 40000)  # input +
 # As of 2026-10-25 Artificial Analysis lists $0.20 input and $1.20 output per 1M.
 # The cached-input price isn't shown there; $0.02 (10% of input, OpenAI's usual
 # cache discount) matches its blended price of $0.17 at a 7:2:1 ratio.
-# Set PRICES_CONFIRMED = True once you've checked them against OpenAI's page.
+# Confirmed Oct 2026 (input $0.20, cached input $0.02, output $1.20 per 1M) on:
+#   https://pricepertoken.com
+#   https://developer.puter.com
 PRICE_INPUT_PER_M = 0.20
 PRICE_CACHED_INPUT_PER_M = 0.02
 PRICE_OUTPUT_PER_M = 1.20
-PRICES_CONFIRMED = False
+PRICES_CONFIRMED = True
 
 # Prices per model (input, cached input, output), USD per 1M tokens. Calls to
 # a model that isn't listed here (e.g. gpt-6-luna via Portkey) are counted in

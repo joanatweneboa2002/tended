@@ -34,8 +34,8 @@ export function WallTime({ day, hhmm, pet, role }: { day: string; hhmm: string; 
   )
 }
 
-export function Schedule({ pet, role, onOpenActivity }: { pet: Pet; role: Role; onOpenActivity: () => void }) {
-  const [section, setSection] = useState<'today' | 'edit' | 'history' | 'ai'>('today')
+export function Schedule({ pet, role, onOpenActivity, start = 'today' }: { pet: Pet; role: Role; onOpenActivity: () => void; start?: 'today' | 'ai' }) {
+  const [section, setSection] = useState<'today' | 'edit' | 'history' | 'ai'>(start)
   if (role === 'caretaker') return <DayTasks pet={pet} role={role} />
   return (
     <div className="stack">

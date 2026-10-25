@@ -17,7 +17,13 @@ export type Tab = 'home' | 'schedule' | 'health' | 'messages' | 'appointments' |
 const REFRESH_MS = 10000
 const UNDO_MS = 120_000
 
-export function Home({ pet, role, go, onOpenActivity }: { pet: Pet; role: Role; go: (t: Tab) => void; onOpenActivity: () => void }) {
+export function Home({ pet, role, go, onSetUpAI, onOpenActivity }: {
+  pet: Pet
+  role: Role
+  go: (t: Tab) => void
+  onSetUpAI: () => void
+  onOpenActivity: () => void
+}) {
   const [data, setData] = useState<Dashboard | null>(null)
   const [loadedAt, setLoadedAt] = useState(() => new Date())
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +50,7 @@ export function Home({ pet, role, go, onOpenActivity }: { pet: Pet; role: Role; 
   return role === 'caretaker' ? (
     <CaretakerHome d={data} pet={pet} go={go} now={loadedAt} reload={load} />
   ) : (
-    <OwnerHome d={data} pet={pet} go={go} now={loadedAt} reload={load} onOpenActivity={onOpenActivity} />
+    <OwnerHome d={data} pet={pet} go={go} now={loadedAt} reload={load} onSetUpAI={onSetUpAI} onOpenActivity={onOpenActivity} />
   )
 }
 
@@ -96,12 +102,13 @@ function CaretakerHome({ d, pet, go, now, reload }: { d: Dashboard; pet: Pet; go
   )
 }
 
-function OwnerHome({ d, pet, go, now, reload, onOpenActivity }: {
+function OwnerHome({ d, pet, go, now, reload, onSetUpAI, onOpenActivity }: {
   d: Dashboard
   pet: Pet
   go: (t: Tab) => void
   now: Date
   reload: () => void
+  onSetUpAI: () => void
   onOpenActivity: () => void
 }) {
   const { check, setCheck } = useLatestCheck(pet.id)
@@ -112,7 +119,7 @@ function OwnerHome({ d, pet, go, now, reload, onOpenActivity }: {
         <Hero d={d} pet={pet} role="owner" now={now} urgent={alerts.some((a) => a.level === 'urgent')} go={go} />
         <AlertStack alerts={alerts} pet={pet} role="owner" emptyText="Nothing needs attention right now." />
         <QuickStats d={d} go={go} />
-        <Timeline title="Today" tasks={d.tasks} d={d} pet={pet} role="owner" go={go} reload={reload} />
+        <Timeline title="Today" tasks={d.tasks} d={d} pet={pet} role="owner" go={go} reload={reload} onSetUpAI={onSetUpAI} />
       </div>
       <div className="dash-side">
         <CheckCard pet={pet} check={check} onCheck={setCheck} onOpenActivity={onOpenActivity} />
@@ -266,7 +273,7 @@ function Stat({ icon, tone, label, value, sub, onClick }: { icon: IconName; tone
 // Today: a tickable timeline
 // ---------------------------------------------------------------------------
 
-function Timeline({ title, tasks, d, pet, role, go, reload }: {
+function Timeline({ title, tasks, d, pet, role, go, reload, onSetUpAI }: {
   title: string
   tasks: DashTask[]
   d: Dashboard
@@ -274,6 +281,7 @@ function Timeline({ title, tasks, d, pet, role, go, reload }: {
   role: Role
   go: (t: Tab) => void
   reload: () => void
+  onSetUpAI?: () => void
 }) {
   return (
     <section className="card timeline">
@@ -287,7 +295,19 @@ function Timeline({ title, tasks, d, pet, role, go, reload }: {
         </button>
       </div>
       {tasks.length === 0 ? (
-        <p className="muted">Nothing scheduled today.</p>
+        onSetUpAI ? (
+          <div className="schedule-nudge">
+            <p>
+              <b>Nothing on {pet.name}’s schedule today.</b> Tell Tended about meals, walks and meds in your own words, and it turns
+              them into a schedule you approve.
+            </p>
+            <button className="btn primary" onClick={onSetUpAI}>
+              ✨ Set up with AI
+            </button>
+          </div>
+        ) : (
+          <p className="muted">Nothing scheduled today.</p>
+        )
       ) : (
         <ol className="tl">
           {tasks.map((t) => (

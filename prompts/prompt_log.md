@@ -496,3 +496,51 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 ## Prompt 24: Forget a remembered user or pet that no longer exists
 
 > if the browser remembers a user or pet that doesn’t exist in the database anymore, forget it quietly and show the welcome screen, instead of calling the backend for a missing pet. commit and push. add this prompt to my prompt log.
+
+---
+
+## Prompt 25: How people enter Tended (landing, owner sign-up, caretaker invite codes)
+
+> restructure how people enter Tended. no passwords. keep every feature, the demo users and the design.
+>
+> 1. landing screen (first thing anyone sees)
+>
+> big Tended logo and name, the line “Care for your pet while you’re away” underneath in smaller text, and a small collage of the real pet photos
+> two big buttons: “I own a pet” and “I’m looking after a pet”
+> smaller links below: “Already on Tended? Pick your profile” and “Just looking? Try the demo”
+>
+> 2. owner sign up (3 short steps with a progress dot row)
+>
+> step 1, you: name, city, time zone (detected automatically but editable), optional photo
+> step 2, your pet: name, species, breed, age, photo, the city where the pet is staying and its time zone
+> step 3, your caretaker: their name and city. then show a short invite code like FYNN-482 with a copy button and a ready to send message: “Hi [name], I’m using Tended to keep track of [pet] while I’m away. Download it and use the code [code] to join.”
+> then go to Home, where an empty schedule nudges them to “Set up with AI”
+>
+> 3. caretaker join
+>
+> “Enter the code from the owner”, plus their name, city and optional photo
+> a wrong code shows a friendly error. the right code links them to only that pet, and they land on the caretaker Home
+>
+> 4. returning and demo
+>
+> “Pick your profile” shows real users who joined on this device
+> “Try the demo” shows the existing demo people (Joana, Maya, Kenji and their caretakers) with a “Demo” label
+> remember the chosen user so a refresh doesn’t send them back to the landing screen. “Switch user” in the profile menu goes back to the landing screen
+>
+> 5. safety
+>
+> invite codes are random and single use, and expire after 7 days
+> add a safety test: a wrong or used code can’t join a pet
+> run all the safety tests,
+
+---
+
+## Prompt 26: Confirming OpenAI / Portkey prices
+
+> how do i conform the prices of open ai portkey?
+
+---
+
+## Prompt 27: Confirm gpt-5.6-luna prices
+
+> the gpt-5.6-luna prices in config are confirmed: input $0.20, cached input $0.02, output $1.20 per 1M tokens (checked on pricepertoken.com and developer.puter.com, Oct 2026). set PRICES_CONFIRMED = True, add those two sources as a comment, re-run the cost report, then commit and push. add this prompt to my prompt log.

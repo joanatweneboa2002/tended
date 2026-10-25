@@ -11,8 +11,6 @@ after a dose was given can't open a second slot that day. The database has
 a unique index (one_dose_per_slot) as a second line of defence.
 """
 
-import re
-import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -31,6 +29,7 @@ from backend import (
     dashboard,
     health,
     helper_agent,
+    invites,
     messages,
     setup_agent,
     suggestions,
@@ -51,7 +50,7 @@ from backend.db import connect, init_db, task_runs_on
 from backend.schemas import TaskIn, insert_task
 from backend.seed import ensure_accounts, ensure_sample_pets, ensure_sample_photos, reset_sample_data, seed_if_empty
 from backend.token_log import ensure_token_log
-from backend.users import Me, place_for_zone, can_see, guard, require_pet, user_out, visible_pets_sql
+from backend.users import Me, can_see, guard, new_user, place_for_zone, require_pet, user_out, valid_zone, visible_pets_sql
 
 
 def _ai_status() -> dict:
@@ -94,6 +93,7 @@ app.include_router(setup_agent.router)
 app.include_router(helper_agent.router)
 app.include_router(coordinator.router)
 app.include_router(suggestions.router)
+app.include_router(invites.router)
 
 
 # ---------------------------------------------------------------------------
@@ -186,29 +186,6 @@ def whoami(user=Me) -> dict:
     return user_out(user)
 
 
-def _valid_zone(tz: str) -> str:
-    try:
-        ZoneInfo(tz)
-    except (ZoneInfoNotFoundError, ValueError):
-        raise HTTPException(422, f"Unknown time zone '{tz}'.") from None
-    return tz
-
-
-def _new_user(conn, name: str, role: str, city: str, tz: str, created_by: str | None = None,
-              photo: str | None = None) -> sqlite3.Row:
-    name, city = name.strip(), city.strip()
-    if not (1 <= len(name) <= 40) or not (1 <= len(city) <= 60):
-        raise HTTPException(422, "Please give a name (up to 40 letters) and a city.")
-    uid = f"{re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')[:20] or 'user'}-{secrets.token_hex(3)}"
-    flag, country = place_for_zone(_valid_zone(tz))
-    conn.execute(
-        "INSERT INTO users (id, name, role, city, country, flag, timezone, photo_path, is_sample, created_by, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
-        (uid, name, role, city, country, flag, tz, photo, created_by, utc_now_iso()),
-    )
-    return conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
-
-
 @app.post("/api/users", status_code=201)
 async def join(
     name: str = Form(...),
@@ -218,12 +195,12 @@ async def join(
     photo: UploadFile | None = File(None),
 ) -> dict:
     """"New here? Create your profile": no password, just who and where you are."""
-    _valid_zone(timezone_)
+    valid_zone(timezone_)
     checked = await read_photo(photo)
     saved = save_photo(checked, "user") if checked else None
     try:
         with connect() as conn:
-            return user_out(_new_user(conn, name, role, city, timezone_, photo=saved))
+            return user_out(new_user(conn, name, role, city, timezone_, photo=saved))
     except BaseException:
         remove_photo(saved)
         raise
@@ -260,7 +237,7 @@ def add_caretaker(pet_id: int, body: CaretakerIn, user=Me) -> dict:
     _owner_only(user)
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)
-        carer = _new_user(conn, body.name, "caretaker", body.city, body.timezone or pet["home_timezone"],
+        carer = new_user(conn, body.name, "caretaker", body.city, body.timezone or pet["home_timezone"],
                           created_by=user["id"])
         conn.execute("UPDATE pets SET caretaker_id = ?, caretaker_name = ? WHERE id = ?",
                      (carer["id"], carer["name"], pet_id))

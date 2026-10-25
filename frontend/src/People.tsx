@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type User } from './api'
+import { api, forgetJoined, type User } from './api'
 
 // People who join can add a photo; demo people (and anyone without one) get a
 // drawn avatar: their initial on a tint.
@@ -100,6 +100,7 @@ export function ProfileMenu({ user, onAddPet, onSwitch, onDeleted }: {
                 if (!confirm(`Delete ${what}? This can't be undone.`)) return
                 try {
                   await api.deleteMe()
+                  forgetJoined(user.id)
                   onDeleted()
                 } catch (e) {
                   alert((e as Error).message)

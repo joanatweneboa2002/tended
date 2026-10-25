@@ -876,6 +876,52 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .btn.urgent-msg { background: var(--deep); color: #fff; }
 .urgent-card .sent-note { background: var(--mint-pale); padding: 8px 12px; border-radius: 12px; }
 
+/* ---- landing: how people enter Tended ---- */
+.landing-app { padding-bottom: 40px; }
+.start { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 48px 0 8px; gap: 22px; }
+.start-brand { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.brand-mark.big { width: 76px; height: 76px; border-radius: 24px; box-shadow: 0 14px 30px rgba(30, 79, 168, 0.3); }
+.start-brand h1 { font-size: 46px; letter-spacing: -0.04em; }
+.start-brand p { margin: 0; font-size: 17px; font-weight: 600; color: var(--gray); }
+.collage { display: flex; justify-content: center; padding: 6px 0 4px; }
+.collage img {
+  width: 76px; height: 76px; object-fit: cover; margin: 0 -9px; border-radius: 62% 38% 54% 46% / 49% 59% 41% 51%;
+  box-shadow: 0 0 0 4px var(--page), var(--shadow); background: var(--soft);
+}
+.collage-0 { transform: rotate(-8deg) translateY(6px); }
+.collage-1 { transform: rotate(4deg) translateY(-6px); }
+.collage-2 { transform: rotate(-3deg) translateY(4px); z-index: 1; width: 92px !important; height: 92px !important; }
+.collage-3 { transform: rotate(6deg) translateY(-4px); }
+.collage-4 { transform: rotate(-6deg) translateY(6px); }
+.start-actions { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.start-btn { width: 100%; font-size: 18px; padding: 18px 22px; }
+.start-links { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.start .demo-note { margin-top: 4px; }
+
+.flow { padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+.flow .welcome-hero { margin: 0; }
+.flow-back { align-self: flex-start; }
+.dots-row { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; gap: 22px; }
+.dots-row li { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--gray); }
+.dots-row .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--soft-2); }
+.dots-row li.now { color: var(--ink); }
+.dots-row li.now .dot { background: var(--deep); box-shadow: 0 0 0 4px var(--sky); }
+.dots-row li.done .dot { background: var(--sky-strong); }
+
+.invite-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--radius-sm); background: var(--sky-pale); }
+.invite-card .kicker { margin: 0; }
+.invite-code-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.invite-code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 28px; font-weight: 800; letter-spacing: 0.08em; color: var(--ink); }
+.invite-card textarea { border: 1.5px solid var(--soft-2); border-radius: 14px; padding: 10px 12px; resize: none; background: #fff; }
+.invite-card > .btn { align-self: flex-start; }
+.code-input { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 22px !important; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.invite-found { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border-radius: 14px; background: var(--mint-pale); font-weight: 600; }
+.invite-found img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+.empty-join { text-align: center; }
+.badge.demo { background: var(--lilac); color: var(--ink); }
+.schedule-nudge { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; border-radius: var(--radius-sm); background: var(--lilac-pale); }
+.schedule-nudge p { margin: 0; }
+
 /* Owner view: read only. What the caretaker did, or when it's due. */
 .tl-row.tl-readonly { grid-template-columns: 66px 14px minmax(0, 1fr); align-items: start; }
 .tl-readonly .tl-time, .tl-readonly .tl-dot { margin-top: 3px; }
@@ -950,7 +996,11 @@ main { display: flex; flex-direction: column; gap: 16px; }
   .modal { width: min(560px, 100%); }
 
   /* welcome: owners and caretakers side by side */
-  .app.welcome { padding: 0 40px 48px; max-width: 1120px; margin: 0 auto; }
+  .app.welcome, .app.landing-app { padding: 0 40px 48px; max-width: 1120px; margin: 0 auto; }
+  .start { max-width: 520px; margin: 0 auto; padding-top: 72px; }
+  .collage img { width: 96px; height: 96px; }
+  .collage-2 { width: 116px !important; height: 116px !important; }
+  .flow { max-width: 760px; margin: 0 auto; }
   .welcome-hero { padding: 32px 32px 44px; }
   .welcome-hero h1 { font-size: 40px; }
   .people-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }

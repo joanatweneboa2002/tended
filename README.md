@@ -109,7 +109,16 @@ Open **http://localhost:5173**. Stop either one with Ctrl+C. The backend runs as
 
 ## Try it in 2 minutes
 
-Tended opens on **Who's using Tended?** Pick a person (demo accounts, no password); the browser remembers them until you tap your round profile photo → **Switch user**. Owners and their pets are in different places:
+Tended opens on a landing screen ("Care for your pet while you're away") with two big buttons and two links. There are no passwords:
+
+- **I own a pet:** three short steps (you, your pet, your caretaker). Your time zone is detected and can be changed. The last step gives you an invite code like `BOLT-J6VY` with a copy button and a ready-to-send message for your caretaker. Then Home nudges you to **✨ Set up with AI** to build the schedule.
+- **I'm looking after a pet:** enter the code from the owner, your name and city (and a photo if you like). It shows which pet the code is for; a wrong, used or expired code gets a friendly message. The right code links you to that pet only and opens the caretaker Home.
+- **Already on Tended? Pick your profile:** people who joined on this device.
+- **Just looking? Try the demo:** the demo people below, labelled **Demo**.
+
+The browser remembers who you are, so a refresh keeps you in; your round profile photo → **Switch user** goes back to the landing screen. Invite codes are random (pet name + 4 characters, about a million per pet), single use, and expire after 7 days. Owners can also invite a caretaker later from the pet's profile.
+
+The demo people: owners and their pets are in different places.
 
 | Owner | Lives in | Pet(s) | Pet is in | Caretaker |
 |---|---|---|---|---|
@@ -117,7 +126,7 @@ Tended opens on **Who's using Tended?** Pick a person (demo accounts, no passwor
 | **Maya** | London, UK 🇬🇧 (six-month stay) | Miso (cat) | Zurich, Switzerland 🇨🇭 | **Lena** |
 | **Kenji** | Medellín, Colombia 🇨🇴 | Clover (rabbit), Kiwi (parrot) | Tokyo, Japan 🇯🇵 | **Yuki** |
 
-**New here? Create your profile** on the same screen lets testers join with a name, city, time zone, role and an optional photo (still no password). An owner can then add a pet (with a photo, its city and time zone) and add their caretaker by name and city, which creates a caretaker profile linked only to that pet. People and pets added this way are labelled **Real user** instead of **Sample**, and **Delete my profile and pets** in the profile menu removes them again (demo accounts stay).
+People and pets added by testers are labelled **Real user** instead of **Sample**, and **Delete my profile and pets** in the profile menu removes them again (demo accounts stay).
 
 Owners see only their own pets and caretakers only the pets they look after; the backend refuses anything else, for new users too. Home shows both places ("Fynn is in Accra 🇬🇭 · 4 hours ahead of you") with both clocks: owners see the pet's time first and their own smaller, caretakers always see the pet's local time. The round red **SOS** button opens the emergency card from any screen.
 
@@ -139,13 +148,14 @@ Owners see only their own pets and caretakers only the pets they look after; the
 
 ```bash
 # Mac (Windows: replace .venv/bin/python with .venv\Scripts\python)
-.venv/bin/python tests/safety_tests.py             # all 10 tests, incl. a few real model calls (~20 s, < $0.01)
+.venv/bin/python tests/safety_tests.py             # all 11 tests, incl. a few real model calls (~20 s, < $0.01)
 .venv/bin/python tests/safety_tests.py --offline   # same tests without any API calls
 .venv/bin/python scripts/cost_report.py            # cost per run, per user per month, caching savings
 ```
 
 - **`tests/safety_tests.py`:** prints **PASS/FAIL** for each test and saves `logs/safety_results.md` with the date. The 7 AI defenses are prompt injection, emergency override, no guessing, double dose, the 5-call step limit, the token budget, and privacy (no phone numbers or addresses sent to the model). Then:
   - **Only the caretaker ticks:** an owner's check-in (even claiming to be the caretaker) and an owner's undo are refused; the caretaker can still tick, and the owner can still edit the schedule.
+  - **Invite codes:** codes are random; a wrong, used or expired code can't join a pet and leaves nothing behind; the right code links the caretaker to that one pet; only the pet's owner can make a code.
   - **Access control:** a tester who joins sees no one else's pets, their new caretaker sees only that pet, and deleting the profile removes all of it. Lena can't open Fynn, Ama can't open Miso and Yuki can't open Fynn: not on screen (their pet lists and welcome cards) and not in the backend (15 routes each, including the agents, all refused with 403, and the model is never called). A caretaker also can't pass as the owner.
   - **Time zones:** runs the app's own time code (`frontend/src/zones.ts`, with Node) against Python's `zoneinfo` for all three owner/pet places at three moments (summer, the night Europe changes clocks, and after the US change), including Kenji and Tokyo on different days. It also checks each pet's "today" and sample times in the backend.
   - **Isolation:** every test runs on a throwaway database, so your data isn't touched.
@@ -192,6 +202,7 @@ tended/
 │   ├── prompts/            fixed system prompts, one per agent
 │   ├── seed.py             sample pets Miso, Clover, Fynn and Kiwi, a week each
 │   ├── users.py            demo accounts and who may see which pet
+│   ├── invites.py          invite codes: random, single use, 7 days, one pet
 │   └── config.py           .env lookup, OpenAI/Portkey choice, limits, model prices
 ├── frontend/           React + Vite + TypeScript
 ├── data/

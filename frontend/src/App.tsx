@@ -11,7 +11,7 @@ import { PetAvatar } from './PetAvatar'
 import { ProfileMenu, RealBadge } from './People'
 import { Profile, ProfileForm } from './Profile'
 import { Schedule } from './Schedule'
-import { Welcome } from './Welcome'
+import { Landing } from './Landing'
 
 const UNREAD_POLL_MS = 5000
 const OLD_KEYS = ['tended.view', 'tended.petId'] // from before accounts
@@ -64,8 +64,8 @@ export default function App() {
   if (user === undefined) return <div className="app"><p className="empty">Loading…</p></div>
   if (user === null) {
     return (
-      <Welcome
-        onPick={(u) => {
+      <Landing
+        onEnter={(u) => {
           signIn(u.id)
           setUser(u)
         }}
@@ -148,7 +148,13 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
   }, [shownId, role])
   const clearUnread = useCallback(() => setUnread(0), [])
 
+  const [scheduleStart, setScheduleStart] = useState<'today' | 'ai'>('today')
+  const setUpWithAI = () => {
+    go('schedule')
+    setScheduleStart('ai')
+  }
   const go = (t: Tab) => {
+    setScheduleStart('today')
     setAdding(false)
     setTab(t)
     window.scrollTo({ top: 0 })
@@ -245,8 +251,8 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
           />
         ) : pet ? (
           <div key={`${pet.id}-${role}`}>
-            {tab === 'home' && <Home pet={pet} role={role} go={go} onOpenActivity={() => setActivityOpen(true)} />}
-            {tab === 'schedule' && <Schedule pet={pet} role={role} onOpenActivity={() => setActivityOpen(true)} />}
+            {tab === 'home' && <Home pet={pet} role={role} go={go} onSetUpAI={setUpWithAI} onOpenActivity={() => setActivityOpen(true)} />}
+            {tab === 'schedule' && <Schedule key={scheduleStart} pet={pet} role={role} start={scheduleStart} onOpenActivity={() => setActivityOpen(true)} />}
             {tab === 'health' && <Health pet={pet} role={role} />}
             {tab === 'messages' && <Messages pet={pet} role={role} onRead={clearUnread} />}
             {tab === 'appointments' && <Appointments pet={pet} role={role} />}

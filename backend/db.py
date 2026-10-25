@@ -216,6 +216,20 @@ CREATE TABLE IF NOT EXISTS log_suggestions (
     decided_at     TEXT
 );
 CREATE INDEX IF NOT EXISTS log_suggestions_by_pet ON log_suggestions (pet_id, status);
+
+-- Invite codes an owner gives their caretaker (e.g. FYNN-K7P2). Random, single
+-- use, expire after 7 days. Joining with one links the new caretaker to this pet only.
+CREATE TABLE IF NOT EXISTS invites (
+    code            TEXT PRIMARY KEY,
+    pet_id          INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+    created_by      TEXT NOT NULL,
+    caretaker_name  TEXT NOT NULL DEFAULT '',
+    caretaker_city  TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    used_by         TEXT,
+    used_at         TEXT
+);
 """
 
 # Columns added after the first version, so older databases get them too.

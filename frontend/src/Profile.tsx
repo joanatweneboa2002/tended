@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { api, type EmergencyFields, type Pet, type PetInput, type Role, type User } from './api'
+import { api, type EmergencyFields, type Invite, type Pet, type PetInput, type Role, type User } from './api'
+import { InviteCard } from './Invite'
 import { RealBadge } from './People'
 import { PetAvatar } from './PetAvatar'
 import { Field } from './ui'
@@ -132,6 +133,8 @@ export function ProfileForm({
   const [carers, setCarers] = useState<User[]>([])
   const [newCarer, setNewCarer] = useState<{ name: string; city: string } | null>(null)
   const [photo, setPhoto] = useState<File | null>(null) // for a new pet
+  const [invite, setInvite] = useState<Invite | null>(null)
+  const [created, setCreated] = useState<Pet | null>(null) // a new pet, held back until its invite code is copied
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     api.myCaretakers().then(setCarers, () => {})
@@ -172,11 +175,13 @@ export function ProfileForm({
       let saved = pet ? await api.updatePet(pet.id, body) : await api.createPet(body)
       if (photo) saved = await api.uploadPetPhoto(saved.id, photo)
       if (newCarer && newCarer.name.trim()) {
-        // creates the caretaker's profile, linked only to this pet
-        saved = await api.addCaretaker(saved.id, { name: newCarer.name, city: newCarer.city || form.home_city })
-        setCarers(await api.myCaretakers())
-        setForm((f) => ({ ...f, caretaker_id: saved.caretaker_id, caretaker_name: saved.caretaker_name }))
+        // an invite code: they join with it, linked to this pet only
+        setInvite(await api.createInvite(saved.id, { name: newCarer.name, city: newCarer.city || form.home_city }))
         setNewCarer(null)
+        if (!pet) {
+          setCreated(saved) // stay here so the code can be copied
+          return
+        }
       }
       onSaved(saved)
       setMsg({ ok: true, text: 'Saved.' })
@@ -250,7 +255,7 @@ export function ProfileForm({
                 {c.name} · {c.city} {c.flag}
               </option>
             ))}
-            <option value={NEW}>+ Add a new caretaker…</option>
+            <option value={NEW}>+ Invite a new caretaker…</option>
           </select>
         </Field>
         {newCarer && (
@@ -278,9 +283,15 @@ export function ProfileForm({
           placeholder="Habits, fears, favourite spots, things the caretaker should know"
         />
       </Field>
+      {invite && <InviteCard invite={invite} />}
+      {created && (
+        <button type="button" className="btn primary big" onClick={() => onSaved(created)}>
+          Go to {created.name}’s Home
+        </button>
+      )}
       {msg && <p className={msg.ok ? 'success' : 'error'}>{msg.text}</p>}
-      <div className="form-actions">
-        <button className="btn primary" disabled={saving}>
+      <div className="form-actions" hidden={!!created}>
+        <button className="btn primary" disabled={saving || !!created}>
           {saving ? 'Saving…' : pet ? 'Save profile' : 'Add pet'}
         </button>
         {onCancel && (

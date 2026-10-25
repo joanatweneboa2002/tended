@@ -371,6 +371,55 @@ def test_only_caretaker_ticks(c):
     return out
 
 
+def test_invite_codes(c):
+    """A caretaker joins with the owner's code: random, single use, 7 days, one pet only."""
+    out = []
+    pets = fresh(c)  # acting as Maya, Miso's owner
+    miso, fynn = pets["Miso"]["id"], None
+    codes = [c.post(f"/api/pets/{miso}/invites", json={"name": "Sam", "city": "Zurich"}).json()["code"] for _ in range(3)]
+    check(out, "codes are random (three in a row all differ) and look like MISO-K7P2",
+          len(set(codes)) == 3 and all(re.fullmatch(r"MISO-[2-9A-HJ-NP-Z]{4}", x) for x in codes), str(codes))
+    people_before = len(c.get("/api/users").json())
+
+    def join(code, name):
+        return c.post("/api/join-pet", data={"code": code, "name": name, "city": "Zurich"})
+
+    wrong = join("MISO-ZZZZ" if "MISO-ZZZZ" not in codes else "MISO-YYYY", "Wrong")
+    check(out, "a wrong code can't join a pet (friendly 404)", wrong.status_code == 404 and "doesn't match" in wrong.json()["detail"],
+          f"HTTP {wrong.status_code}: {wrong.json().get('detail')}")
+    first = join(codes[0].lower(), "Nia")  # typed in lower case still works
+    nia = first.json()
+    act_as(c, nia["id"])
+    sees = [p["name"] for p in c.get("/api/pets").json()]
+    check(out, "the right code links the new caretaker to that pet only", first.status_code == 201 and sees == ["Miso"],
+          f"HTTP {first.status_code}, sees {sees}")
+    again = join(codes[0], "Eve")
+    check(out, "a used code can't join again (single use)", again.status_code == 410 and "already been used" in again.json()["detail"],
+          f"HTTP {again.status_code}: {again.json().get('detail')}")
+    conn = sqlite3.connect(db.DB_PATH)
+    conn.execute("UPDATE invites SET expires_at = '2000-01-01T00:00:00Z' WHERE code = ?", (codes[1],))
+    days = conn.execute("SELECT julianday(expires_at) - julianday(created_at) FROM invites WHERE code = ?", (codes[2],)).fetchone()[0]
+    conn.commit()
+    conn.close()
+    late = join(codes[1], "Eve")
+    check(out, "codes expire after 7 days", late.status_code == 410 and "expired" in late.json()["detail"] and round(days) == 7,
+          f"expired code: HTTP {late.status_code}; a new code lasts {days:.1f} days")
+    after = [u["name"] for u in c.get("/api/users").json()]
+    check(out, "failed joins leave nothing behind (no profile for Wrong or Eve)",
+          len(after) == people_before + 1 and "Eve" not in after and "Wrong" not in after, f"{len(after) - people_before} new: Nia only?")
+    act_as(c, "joana")
+    fynn = next(p["id"] for p in c.get("/api/pets").json() if p["name"] == "Fynn")
+    tries = {"Joana for Miso": c.post(f"/api/pets/{miso}/invites", json={}).status_code}
+    act_as(c, "lena")
+    tries["Lena (caretaker) for Miso"] = c.post(f"/api/pets/{miso}/invites", json={}).status_code
+    act_as(c, nia["id"])
+    tries["Nia for Fynn"] = c.post(f"/api/pets/{fynn}/invites", json={}).status_code
+    check(out, "only the pet's owner can make a code for it", all(v == 403 for v in tries.values()), str(tries))
+    act_as(c, nia["id"])
+    c.delete("/api/me")  # tidy up: the next tests start without her
+    return out
+
+
 ACCESS_CASES = [("lena", "Fynn"), ("ama", "Miso"), ("yuki", "Fynn")]
 
 
@@ -457,7 +506,7 @@ def test_access_control(c):
     demo_delete = c.delete("/api/me").status_code
     act_as(c, ada["id"])
     gone = c.delete("/api/me").status_code
-    left = [u["name"] for u in c.get("/api/users").json() if not u["is_sample"]]
+    left = [u["name"] for u in c.get("/api/users").json() if u["id"] in (ada["id"], bolt["caretaker_id"])]
     check(out, "“Delete my profile and pets” removes the tester, their pets and their caretaker (demo accounts stay)",
           gone == 204 and left == [] and c.get("/api/pets").status_code == 401 and demo_delete == 403,
           f"delete HTTP {gone}, real users left {left}, demo delete HTTP {demo_delete}")
@@ -550,6 +599,7 @@ TESTS = [
     ("Token budget", test_token_budget),
     ("Privacy", test_privacy),
     ("Only the caretaker ticks", test_only_caretaker_ticks),
+    ("Invite codes", test_invite_codes),
     ("Access control", test_access_control),
     ("Time zones", test_time_zones),
 ]
@@ -581,7 +631,7 @@ def main() -> int:
     md = ["# Tended safety test results\n",
           f"- **Date:** {started:%Y-%m-%d %H:%M %Z}",
           f"- **Mode:** {mode}" + (f" (provider: {PROVIDER.name}, model: `{PROVIDER.model}`)" if LIVE else ""),
-          f"- **Result:** {passed}/{len(rows)} tests passed (7 defenses, only the caretaker ticks, access control, time zones)",
+          f"- **Result:** {passed}/{len(rows)} tests passed (7 defenses, only the caretaker ticks, invite codes, access control, time zones)",
           "- **How to run:** `.venv/bin/python tests/safety_tests.py` (add `--offline` to skip real model calls)",
           "- Every test runs on a throwaway copy of the database with fresh sample data. \"code\" checks use a fake "
           "model that misbehaves on purpose; \"live\" checks use the real model.\n",
