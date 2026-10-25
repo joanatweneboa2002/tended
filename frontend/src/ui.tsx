@@ -51,3 +51,13 @@ export function Group({ label, children }: { label: string; children: ReactNode 
     </div>
   )
 }
+
+/** A time for the viewer: home time, then (owner only) their own time, small and gray. */
+export function When({ t }: { t: { main: string; yours: string | null } }) {
+  return (
+    <span className="when">
+      {t.main}
+      {t.yours && <small className="your-time"> · {t.yours} for you</small>}
+    </span>
+  )
+}

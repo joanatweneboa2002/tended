@@ -228,14 +228,138 @@ MISO_MESSAGES = [
 OWNER_NAME = "Jordan Rivera"
 
 
+# ---- Fynn (Maltese) and Kiwi (parrot): extra sample pets with a few days of check-ins
+EXTRA_PETS = [
+    {
+        "key": "fynn",
+        "pet": {
+            "name": "Fynn", "species": "Dog", "breed": "Maltese", "age_years": 4, "weight": 7.5, "weight_unit": "lb",
+            "quirks": ("SAMPLE DATA. Barks at the mail carrier, then wants a treat for being brave. Pulls toward "
+                       "squirrels, so hold the leash firmly. Gets tear stains: wipe under his eyes after breakfast."),
+        },
+        "tasks": [
+            ("Breakfast", "feed", "07:30", "daily", None, "1/2 cup small-breed kibble.", None),
+            ("Morning walk", "walk", "08:00", "daily", None, "20 minutes. Harness, not collar.", None),
+            ("Wipe eyes", "other", "08:30", "daily", None, "Damp cloth under each eye.", None),
+            ("Dinner", "feed", "18:00", "daily", None, "1/2 cup small-breed kibble.", None),
+            ("Evening walk", "walk", "18:30", "daily", None, "Around the block.", None),
+            ("Brush coat", "other", "20:00", "daily", None, "Two minutes. He loves it.", None),
+        ],
+        "emergency": {
+            "owner_name": "Jordan Rivera", "owner_phone": "(555) 010-2001",
+            "backup_name": "Priya Shah (neighbor)", "backup_phone": "(555) 010-2002",
+            "vet_name": "Maple Street Animal Clinic (sample)", "vet_phone": "(555) 010-3000",
+            "vet_address": "123 Maple Street, Springfield (sample address)",
+            "allergies": "None known", "conditions": "None", "medications": "None",
+            "vaccines": "Rabies and DHPP, up to date (sample)",
+            "diet": "Small-breed kibble twice a day. No grapes, chocolate or onions.",
+            "emergency_spending_limit": 1000, "microchip_number": "SAMPLE-985-112-000-789",
+        },
+        # (days ago, task, note, photo in frontend/public/pets/diary)
+        "checkins": [
+            (3, "Morning walk", "Met a corgi. Very excited.", None),
+            (3, "Dinner", "Ate it all, then napped on the sofa.", "/pets/diary/fynn-nap.jpg"),
+            (2, "Morning walk", "Short one, it started to rain.", None),
+            (2, "Evening walk", "Zoomies in the park!", "/pets/diary/fynn-walk.jpg"),
+            (1, "Morning walk", "Barked at the mail carrier, got his brave-boy treat.", None),
+        ],
+        "health": [(7.5, "normal", "normal", "high", "normal", ""), None, (None, "normal", "normal", "high", "normal", "")],
+    },
+    {
+        "key": "kiwi",
+        "pet": {
+            "name": "Kiwi", "species": "Parrot", "breed": "Green-cheeked conure", "age_years": 2, "weight": 0.07,
+            "weight_unit": "kg",
+            "quirks": ("SAMPLE DATA. Says \"hello\" and \"good bird\". Millet spray is a once-a-week treat. "
+                       "Nibbles when bored: offer a toy, not a finger. Keep the kitchen door shut, because "
+                       "fumes from non-stick pans are dangerous for birds."),
+        },
+        "tasks": [
+            ("Pellets and fresh veg", "feed", "08:00", "daily", None,
+             "Pellets plus chopped greens and peas. Take fresh food out after 2 hours.", None),
+            ("Fresh water", "other", "08:05", "daily", None, "Rinse and refill both bowls.", None),
+            ("Out-of-cage time", "other", "17:00", "daily", None, "One hour, windows and doors closed.", None),
+            ("Cover the cage", "other", "20:30", "daily", None, "Cover for 10 to 12 hours of sleep.", None),
+            ("Clean the cage", "potty", "10:00", "weekly", "sat", "New cage paper, wash the perches.", None),
+        ],
+        "emergency": {
+            "owner_name": "Jordan Rivera", "owner_phone": "(555) 010-2001",
+            "backup_name": "Priya Shah (neighbor)", "backup_phone": "(555) 010-2002",
+            "vet_name": "Riverside Exotic Pet Hospital (sample, sees birds)", "vet_phone": "(555) 010-4000",
+            "vet_address": "45 River Road, Springfield (sample address)",
+            "allergies": "None known", "conditions": "None", "medications": "None",
+            "vaccines": "Birds don't need routine vaccines; yearly avian vet check (sample)",
+            "diet": "Pellets, fresh greens and peas daily. Never avocado, chocolate or salty snacks.",
+            "emergency_spending_limit": 600, "microchip_number": "Leg band SAMPLE-KW-2024",
+        },
+        "checkins": [
+            (3, "Pellets and fresh veg", "Ate the peas first.", None),
+            (3, "Out-of-cage time", "Said hello to me three times.", None),
+            (2, "Pellets and fresh veg", "Loved the corn today.", "/pets/diary/kiwi-snack.jpg"),
+            (2, "Out-of-cage time", "Played on the window perch.", None),
+            (1, "Pellets and fresh veg", "Cleaned the bowl.", None),
+        ],
+        "health": [(0.07, "normal", "normal", "high", "normal", ""), None, (None, "normal", "normal", "normal", "normal", "")],
+    },
+]
+ALL_SAMPLE_KEYS = ("miso", "clover", "fynn", "kiwi")
+
+
+def sample_photo(key: str) -> str:
+    """Sample pets' photos are plain files in frontend/public/pets/ (swap a file to change one)."""
+    return f"/pets/{key}.jpg"
+
+
+def ensure_sample_photos() -> int:
+    """Point existing sample pets at their photo in frontend/public/pets/ (no reset needed)."""
+    from backend.db import connect
+    fixed = 0
+    with connect() as conn:
+        for spec in PETS + EXTRA_PETS:
+            fixed += conn.execute(
+                "UPDATE pets SET photo_path = ? WHERE is_sample = 1 AND name = ? "
+                "AND (photo_path IS NULL OR photo_path LIKE 'sample-%')",
+                (sample_photo(spec["key"]), spec["pet"]["name"]),
+            ).rowcount
+    return fixed
+
+
+def seed_extra_pet(conn, spec: dict) -> int:
+    """Fynn or Kiwi: profile, schedule, emergency card, a few days of check-ins and health."""
+    rng = random.Random(f"tended-{spec['key']}")
+    today = datetime.now(ZoneInfo(SAMPLE_TZ)).date()
+    pet_id, tasks = _insert_pet(conn, spec)
+    for days_ago, title, note, photo in spec["checkins"]:
+        _insert_checkin(conn, rng, pet_id, tasks[title], today - timedelta(days=days_ago), "done", note, photo=photo)
+    days = [today - timedelta(days=3 - i) for i in range(3)]
+    _insert_health(conn, pet_id, spec["pet"]["weight_unit"], days, spec["health"])
+    return pet_id
+
+
+def ensure_sample_pets() -> int:
+    """Add Fynn and Kiwi to a database that already has the older sample pets,
+    without touching Miso, Clover or anything else."""
+    from backend.db import connect
+    added = 0
+    with connect() as conn:
+        names = {r[0] for r in conn.execute("SELECT name FROM pets WHERE is_sample = 1")}
+        if not names:
+            return 0  # no sample pets at all: the user removed them or seed_if_empty will run
+        for spec in EXTRA_PETS:
+            if spec["pet"]["name"] not in names:
+                seed_extra_pet(conn, spec)
+                added += 1
+    return added
+
+
 def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
     p = spec["pet"]
     pet_id = conn.execute(
         "INSERT INTO pets (name, species, breed, age_years, weight, weight_unit, quirks, "
-        "owner_timezone, home_timezone, caretaker_name, is_sample) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        "owner_timezone, home_timezone, caretaker_name, is_sample, photo_path) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         (p["name"], p["species"], p["breed"], p["age_years"], p["weight"], p["weight_unit"],
-         p["quirks"], SAMPLE_OWNER_TZ, SAMPLE_TZ, CARETAKER),
+         p["quirks"], SAMPLE_OWNER_TZ, SAMPLE_TZ, CARETAKER, sample_photo(spec["key"])),
     ).lastrowid
     tasks = {}
     for title, ttype, time_, repeat, repeat_on, notes, dose in spec["tasks"]:
@@ -255,16 +379,16 @@ def _insert_pet(conn, spec: dict) -> tuple[int, dict[str, dict]]:
     return pet_id, tasks
 
 
-def _insert_checkin(conn, rng, pet_id, task, day: date, status, note="", reason=None):
+def _insert_checkin(conn, rng, pet_id, task, day: date, status, note="", reason=None, photo=None):
     tz = ZoneInfo(SAMPLE_TZ)
     hh, mm = map(int, task["time"].split(":"))
     local = datetime(day.year, day.month, day.day, hh, mm, tzinfo=tz)
     done_at = (local + timedelta(minutes=rng.randint(2, 25))).astimezone(timezone.utc)
     conn.execute(
         "INSERT INTO checkins (task_id, pet_id, task_type, slot_date, slot_time, status, "
-        "reason, note, caretaker_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "reason, note, caretaker_name, created_at, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (task["id"], pet_id, task["type"], day.isoformat(), task["time"], status, reason,
-         note, CARETAKER, done_at.isoformat(timespec="seconds").replace("+00:00", "Z")),
+         note, CARETAKER, done_at.isoformat(timespec="seconds").replace("+00:00", "Z"), photo),
     )
 
 
@@ -335,6 +459,9 @@ def seed(conn) -> None:
             else:
                 _insert_checkin(conn, rng, clover_id, task, day, "done", CLOVER_NOTES[title])
 
+    for spec in EXTRA_PETS:  # after Miso and Clover, with their own random numbers
+        seed_extra_pet(conn, spec)
+
 
 def reset_sample_data() -> None:
     """Delete the sample pets (and anything attached to them) and re-create them."""
@@ -350,7 +477,8 @@ def reset_sample_data() -> None:
         conn.execute("DELETE FROM pets WHERE is_sample = 1")
         seed(conn)
     for row in photos:
-        (PHOTOS_DIR / row[0]).unlink(missing_ok=True)
+        if not row[0].startswith("/"):  # never delete the bundled photos in frontend/public
+            (PHOTOS_DIR / row[0]).unlink(missing_ok=True)
 
 
 def seed_if_empty() -> bool:

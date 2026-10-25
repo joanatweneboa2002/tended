@@ -399,6 +399,7 @@ export const api = {
     reason?: string
     note?: string
     caretaker_name?: string
+    role?: Role
     photo?: File | null
   }) => {
     const form = new FormData()
@@ -408,10 +409,12 @@ export const api = {
     form.append('reason', data.reason ?? '')
     form.append('note', data.note ?? '')
     form.append('caretaker_name', data.caretaker_name ?? '')
+    form.append('role', data.role ?? 'caretaker')
     if (data.photo) form.append('photo', data.photo)
     return request<Checkin>('/api/checkins', { method: 'POST', body: form })
   },
 
+  undoCheckin: (id: number) => request<void>(`/api/checkins/${id}`, { method: 'DELETE' }),
   emergency: (petId: number) => request<EmergencyCard>(`/api/pets/${petId}/emergency`),
   updateEmergency: (petId: number, e: EmergencyFields) =>
     request<EmergencyCard>(`/api/pets/${petId}/emergency`, json('PUT', e)),

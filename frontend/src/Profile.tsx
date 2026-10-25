@@ -177,6 +177,7 @@ export function ProfileForm({
 
   return (
     <form className="card form" onSubmit={submit}>
+      {!pet && <img className="form-hero" src="/pets/happy-dog.jpg" alt="" />}
       <h2>{pet ? 'Pet profile' : 'Add a pet'}</h2>
       {pet && (
         <div className="inline photo-row">

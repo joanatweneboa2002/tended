@@ -18,7 +18,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** Small round red SOS button for the header. One tap opens the emergency card. */
+/** SOS: a small round white button with a red heart-pulse icon. One tap opens the emergency card. */
 export function EmergencyButton({ petId }: { petId: number | null }) {
   const [open, setOpen] = useState(false)
   return (
@@ -34,7 +34,6 @@ export function EmergencyButton({ petId }: { petId: number | null }) {
         <span className="sos-circle" aria-hidden>
           <Icon name="heartPulse" size={22} />
         </span>
-        <span className="sos-label">SOS</span>
       </button>
       {open && petId !== null && createPortal(<EmergencyModal petId={petId} onClose={() => setOpen(false)} />, document.body)}
     </>

@@ -285,3 +285,98 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > make sure text is easy to read on every color, it looks good on a laptop and a phone sized window, and the safety tests still pass. then commit and push to GitHub.
 >
 > add this prompt to my prompt log.
+
+
+---
+
+## Prompt 13: Pinterest palette, real pet photos, more personality
+
+> https://pin.it/3zp8IxDT0 this is my preferred color pallete. 1. Act like an experienced web designer, lets push our creativity a little but more. aLSO, THE OUTLOOK IS QUITE BORING DONT YOU THINK?. add some personality to it, add real photos of pets. if you have run out of ideas, check pinterest. really good place for inspiration. the urgent bit can be a drown down menu, it shouldnt take a chunck of the page. also, we cant tick off the schedule list, fix that. lets start here for now
+
+
+---
+
+## Prompt 14: Real pets, a personal feel, the reference design
+
+> eal pets and a personal feel:
+> use real pet photos instead of drawings. download free photos from Unsplash or Pexels (their licenses allow this) into frontend/public/pets/ and add a credits section to the README with each photographer’s name and link. if you can’t download, tell me and I’ll add the photos myself
+> keep Miso (cat) and Clover (rabbit) and their sample data exactly as they are so the safety tests still pass. add two more sample pets: Fynn, a white Maltese dog, and Kiwi, a parrot, each with a short schedule and a few days of check-ins. make sure the reference file covers birds
+> I’ll replace Fynn’s photo with my own later. make the photo easy to swap: one file at frontend/public/pets/fynn.jpg
+> make it feel personal: a big round photo of the pet at the top of Home, the greeting uses the pet’s name (“Miso’s having a quiet day”), and check-in photos show as a small photo diary on the owner’s Home
+> keep the progress ring, a little bounce when a task is checked off, and the dark floating tab bar with the active tab in ocean blue
+>
+> . I have attached a file of how i actually wan tit to look like. the color, the iterface, everything should look like this. and we still cant tivck off from the to do list?
+
+
+---
+
+## Prompt 15: Color correction
+
+> what the hell?? the color is blue. can you not see it?
+
+---
+
+## Prompt 16: Status check
+
+> are you done?
+
+---
+
+## Prompt 17: Designer brief (full visual redesign)
+
+> So here’s a full designer brief to paste in once its current task finishes:
+>
+> redesign the look of Tended like a top product designer would. keep every feature and all backend logic, this is visual and layout only. inspiration: a modern “smart pet care” app with sky blue, soft lilac and near black, where real pet photos are the hero.
+>
+> colors (60/30/10 rule)
+>
+> 60%: white cards on an off white page (
+> #F5F7FB)
+> 30%: sky blue. soft 
+> #CFE6FF for big surfaces, strong 
+> #4DA3F7 for buttons, links and the progress ring
+> 10%: lilac (
+> #DCD3FF soft, 
+> #8B7CF6 strong) for secondary cards and highlights, plus near black ink 
+> #111318 for headings, the tab bar and main buttons
+> small category tints: peach 
+> #FFE3D1 for food, lilac for meds, mint 
+> #D4F5E9 for walks and health, sky for appointments
+> alerts: white card with a 4px coral 
+> #FF6B5B stripe for urgent, amber 
+> #FFB020 for watch, sky for fyi. no big red blocks anywhere
+> text is always ink 
+> #111318 or gray 
+> #5B6170, never light gray on a tint
+>
+> type and spacing
+>
+> Plus Jakarta Sans: 800 weight for headings (28px page titles, 20px card titles), 500 for body at 15px
+> 20px side padding, 16px between cards, 28px radius on big cards and 20px on small ones, soft shadow 0 8px 24px rgba(17,19,24,0.06)
+>
+> owner Home, top to bottom
+>
+> top bar: Tended logo on the left, Owner/Caretaker switch, and SOS as a small round icon (white circle, red heart pulse icon)
+> pet switcher: a horizontal row of rounded pills, each with a small photo and the name. the active pill is ink with white text
+> hero card: a soft sky blue card with a wavy bottom edge. left side: the pet’s name big and bold, a status line like “Having a quiet day” or “Needs a look today”, and a small pill “2:35 PM in Miso’s home · 6:35 PM for you”. right side: the pet’s photo, large, in a rounded blob shape that slightly overflows the top of the card. a white progress ring with “1/6” overlaps the bottom corner
+> attention strip: one lilac card, “3 things need attention” with the top alert’s headline and a chevron that opens the stack
+> quick stats: a horizontal row of 3 small tiles (Food, Meds, Mood/Energy), each with a colored icon bubble and one big number or word
+> today: a timeline with times in a narrow left column (in the pet’s home time, with yours in small gray), a colored dot per task type, and big round check buttons. done tasks get an ink check and fade slightly
+> today’s summary as a “note from Tended” card: a small pet avatar, the time, and the summary in a friendly tone. max 4 lines with “read more”
+> photo diary: a horizontal scroll of check-in photos with the time under each
+>
+> caretaker Home
+>
+> same hero, but the main card is “Next up”: the next task in big text with its time and one large ink button “Mark done” plus an “add photo” option
+> Ask Tended as a wide sky blue gradient card: “Questions about Miso? Ask Tended” with a chat icon
+> the remaining tasks as the same timeline below
+>
+> other screens: use the same header style (pet pill row and sky surfaces), cards and type on Schedule, Health, Messages and Appointments. message bubbles: the caretaker in sky, the owner in lilac, with timestamps in small gray
+>
+> tab bar: a floating ink pill with icons. the active tab gets a white circle behind its icon and shows its label. the others are icons only
+>
+> laptop: keep the phone width column, centered on a soft sky to lilac gradient page background with a gentle shadow around the phone
+>
+> bugs to fix while you’re in there: the caretaker always sees times in the pet’s home time. the owner sees the pet’s time first and their own time smaller
+>
+> when done: take screenshots at 390px wide and 1280px wide of owner Home, caretaker Home and Messages, check them against this brief and fix anything that doesn’t match. make sure the safety tests still pass, then commit and push. add this prompt to my prompt log.

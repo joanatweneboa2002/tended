@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import type { Pet, Role } from './api'
 import { Icon, TOPIC_ICON } from './Icons'
-import { stamp, timeIn } from './time'
+import { stampFor, type Shown } from './time'
 
 export type Level = 'urgent' | 'watch' | 'fyi'
 
@@ -20,51 +21,73 @@ const LEVEL_WORD: Record<Level, string> = { urgent: 'Urgent', watch: 'Watch', fy
 const ORDER: Record<Level, number> = { urgent: 0, watch: 1, fyi: 2 }
 const SHOW_FIRST = 3
 
-function when(a: AlertItem, tz: string): string {
+function when(a: AlertItem, pet: Pet, role: Role): string {
   if (!a.at) return ''
-  if (a.kind?.startsWith('appointment')) return stamp(a.at, tz)
-  if (a.kind === 'health') return `logged ${timeIn(new Date(a.at), tz)}`
-  return `due ${timeIn(new Date(a.at), tz)}`
+  const appt = a.kind?.startsWith('appointment')
+  const t: Shown = stampFor(a.at, pet, role, appt)
+  const text = t.yours ? `${t.main} (${t.yours} for you)` : t.main
+  return appt ? text : a.kind === 'health' ? `logged ${text}` : `due ${text}`
 }
 
-/** A neat stack of short, friendly alerts. */
-export function AlertStack({ alerts, tz, emptyText }: { alerts: AlertItem[]; tz: string; emptyText?: string }) {
+/** The attention strip: one lilac card ("3 things need attention" + the top
+ *  headline); the chevron opens the full stack of alert cards. */
+export function AlertStack({ alerts, pet, role, emptyText }: { alerts: AlertItem[]; pet: Pet; role: Role; emptyText?: string }) {
+  const [open, setOpen] = useState(false)
   const [showAll, setShowAll] = useState(false)
   if (!alerts.length) {
     return emptyText ? (
-      <p className="all-clear">
-        <Icon name="check" size={18} /> {emptyText}
-      </p>
+      <div className="all-clear">
+        <img src="/pets/napping-cat.jpg" alt="" className="all-clear-photo" />
+        <p>
+          <b>{emptyText}</b>
+          <span className="muted small">Nap time.</span>
+        </p>
+      </div>
     ) : null
   }
   const sorted = alerts.slice().sort((a, b) => ORDER[a.level] - ORDER[b.level])
-  const shown = showAll ? sorted : sorted.slice(0, SHOW_FIRST)
+  const top = sorted[0]
   const urgent = sorted.filter((a) => a.level === 'urgent').length
+  const shown = showAll ? sorted : sorted.slice(0, SHOW_FIRST)
+  const n = sorted.length
   return (
-    <section className="alert-stack" aria-label="Alerts">
-      <header className="alert-stack-head">
-        <h2>
-          {sorted.length === 1 ? '1 thing needs attention' : `${sorted.length} things need attention`}
-        </h2>
+    <section className={`alert-drop lvl-${top.level} ${open ? 'open' : ''}`} aria-label="Alerts">
+      <button className="alert-bar" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="alert-bar-icon" aria-hidden>
+          <Icon name={TOPIC_ICON[top.topic ?? 'other'] ?? 'paw'} size={20} />
+        </span>
+        <span className="alert-bar-text">
+          <b>
+            {n} thing{n === 1 ? '' : 's'} need{n === 1 ? 's' : ''} attention
+          </b>
+          <span className="alert-bar-top">{top.headline}</span>
+        </span>
         {urgent > 0 && <span className="lvl-pill lvl-urgent">{urgent} urgent</span>}
-      </header>
-      <ul>
-        {shown.map((a, i) => (
-          <AlertCard key={`${a.source}-${a.headline}-${i}`} a={a} tz={tz} />
-        ))}
-      </ul>
-      {sorted.length > SHOW_FIRST && (
-        <button className="link-btn stack-more" onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
-        </button>
+        <span className="chev" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="alert-drop-body">
+          <ul>
+            {shown.map((a, i) => (
+              <AlertCard key={`${a.source}-${a.headline}-${i}`} a={a} pet={pet} role={role} />
+            ))}
+          </ul>
+          {sorted.length > SHOW_FIRST && (
+            <button className="link-btn stack-more" onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+            </button>
+          )}
+        </div>
       )}
     </section>
   )
 }
 
-function AlertCard({ a, tz }: { a: AlertItem; tz: string }) {
+function AlertCard({ a, pet, role }: { a: AlertItem; pet: Pet; role: Role }) {
   const [open, setOpen] = useState(false)
-  const time = when(a, tz)
+  const time = when(a, pet, role)
   const hasMore = Boolean(a.details || a.references?.length || time)
   return (
     <li className={`alert-card lvl-${a.level}`}>

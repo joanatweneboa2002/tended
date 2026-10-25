@@ -402,6 +402,8 @@ def run(pet, budget: RunBudget, run_id: int) -> dict:
         if long_head and fids:
             headline = by_finding[fids[0]]["title"]  # use the code finding's short headline instead
         action, long_action = limit_words(action or "Check in with the caretaker.", ACTION_WORDS)
+        if long_action and fids:
+            action = by_finding[fids[0]]["action"]  # the code finding's complete, short action
         refs = [reference.BY_ID[x] for x in a.reference_ids if x in reference.BY_ID
                 and reference.BY_ID[x]["species"] == ref_species]
         alerts.append({

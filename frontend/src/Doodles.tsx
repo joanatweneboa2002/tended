@@ -41,6 +41,15 @@ export function GreetBlob() {
   )
 }
 
+/** The header's wavy bottom edge, filled with the page background. */
+export function HeaderWave() {
+  return (
+    <svg className="header-wave" viewBox="0 0 1440 80" preserveAspectRatio="none" aria-hidden>
+      <path fill="currentColor" d="M0 48c120-26 260-40 420-22s300 46 470 40 320-46 550-40v54H0Z" />
+    </svg>
+  )
+}
+
 /** Soft wave + blobs layered over the header gradient. */
 export function HeaderBlobs() {
   return (

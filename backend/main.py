@@ -13,6 +13,7 @@ a unique index (one_dose_per_slot) as a second line of defence.
 
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -36,6 +37,7 @@ from backend.common import (
     day_tasks,
     get_pet_row,
     parse_day,
+    person_name,
     pet_out,
     read_photo,
     remove_photo,
@@ -46,7 +48,7 @@ from backend.common import (
 from backend.config import LOADED_ENV_FILES, PHOTOS_DIR, AIUnavailable, ai_provider, ai_status_line
 from backend.db import connect, init_db, task_runs_on
 from backend.schemas import TaskIn, insert_task
-from backend.seed import reset_sample_data, seed_if_empty
+from backend.seed import ensure_sample_pets, ensure_sample_photos, reset_sample_data, seed_if_empty
 from backend.token_log import ensure_token_log
 
 
@@ -64,6 +66,8 @@ async def lifespan(_app: FastAPI):
     print(ai_status_line(), flush=True)
     init_db()
     seed_if_empty()
+    ensure_sample_pets()
+    ensure_sample_photos()
     ensure_token_log()
     yield
 
@@ -315,6 +319,7 @@ async def create_checkin(
     reason: str = Form(""),
     note: str = Form(""),
     caretaker_name: str = Form(""),
+    role: Literal["owner", "caretaker"] = Form("caretaker"),
     photo: UploadFile | None = File(None),
 ) -> dict:
     day = parse_day(slot_date)
@@ -338,7 +343,7 @@ async def create_checkin(
         if not task_runs_on(task, day):
             raise HTTPException(422, f"'{task['title']}' isn't scheduled on {day.isoformat()}.")
         if not caretaker_name.strip():
-            caretaker_name = get_pet_row(conn, task["pet_id"])["caretaker_name"]
+            caretaker_name = person_name(conn, get_pet_row(conn, task["pet_id"]), role)
 
         # --- Meds rule (hard rule, not AI) ---------------------------------
         if task["type"] == "meds":
@@ -391,6 +396,24 @@ async def create_checkin(
     with connect() as conn:
         row = conn.execute("SELECT * FROM checkins WHERE id = ?", (checkin_id,)).fetchone()
     return with_photo_url(row)
+
+
+UNDO_SECONDS = 120
+
+
+@app.delete("/api/checkins/{checkin_id}", status_code=204)
+def undo_checkin(checkin_id: int) -> None:
+    """Undo an accidental tick. Only allowed for a short time after it was made,
+    so the history (and the meds rule) can't be quietly rewritten later."""
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM checkins WHERE id = ?", (checkin_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, f"Check-in {checkin_id} not found.")
+        made = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+        if (datetime.now(timezone.utc) - made).total_seconds() > UNDO_SECONDS:
+            raise HTTPException(409, "Too late to undo this check-in (undo works for 2 minutes). Add a note instead.")
+        conn.execute("DELETE FROM checkins WHERE id = ?", (checkin_id,))
+    remove_photo(row["photo_path"])
 
 
 # ---------------------------------------------------------------------------

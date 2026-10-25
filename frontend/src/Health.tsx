@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { api, formatDate, type Appetite, type Energy, type HealthLog, type Pet, type Potty, type Role, type Water } from './api'
 import { HealthChart } from './HealthChart'
-import { stamp, todayIn, viewerTz } from './time'
-import { Field, Group, Segmented } from './ui'
+import { stampFor, todayIn } from './time'
+import { Field, Group, Segmented, When } from './ui'
 
 const APPETITE: { value: Appetite; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -73,7 +73,7 @@ export function Health({ pet, role }: { pet: Pet; role: Role }) {
             <h3>{day === today ? 'Today' : formatDate(day, { weekday: 'long', month: 'short', day: 'numeric' })}</h3>
             <ul className="health-list">
               {list.map((l) => (
-                <HealthRow key={l.id} log={l} tz={viewerTz(pet, role)} />
+                <HealthRow key={l.id} log={l} pet={pet} role={role} />
               ))}
             </ul>
           </div>
@@ -85,7 +85,7 @@ export function Health({ pet, role }: { pet: Pet; role: Role }) {
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
-function HealthRow({ log, tz }: { log: HealthLog; tz: string }) {
+function HealthRow({ log, pet, role }: { log: HealthLog; pet: Pet; role: Role }) {
   const chips: { label: string; value: string; flag?: boolean }[] = []
   if (log.weight != null) chips.push({ label: 'Weight', value: `${log.weight} ${log.weight_unit}` })
   if (log.appetite) chips.push({ label: 'Appetite', value: cap(log.appetite), flag: log.appetite !== 'normal' })
@@ -103,7 +103,7 @@ function HealthRow({ log, tz }: { log: HealthLog; tz: string }) {
       </div>
       {log.symptoms && <p className="symptoms">“{log.symptoms}”</p>}
       <p className="muted small">
-        {stamp(log.logged_at, tz)}
+        <When t={stampFor(log.logged_at, pet, role)} />
         {log.logged_by && ` · ${log.logged_by}`}
       </p>
     </li>

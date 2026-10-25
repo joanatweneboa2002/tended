@@ -51,14 +51,22 @@ def day_clock(dt: datetime) -> str:
 
 HEADLINE_WORDS = 8
 ACTION_WORDS = 15
-_DANGLING = {"and", "or", "but", "the", "a", "an", "to", "of", "for", "with", "if", "so", "because", "about", "as", "at", "on", "in"}
+_DANGLING = {"and", "or", "but", "the", "a", "an", "to", "of", "for", "with", "if", "so", "because", "about",
+             "as", "at", "on", "in", "unless", "until", "before", "after", "when", "while", "than", "that", "without",
+             "not", "do", "don't", "never", "no", "your", "her", "his", "their", "its", "any", "every", "each"}
 
 
 def limit_words(text: str, n: int) -> tuple[str, bool]:
-    """Keep at most n words (cut at a clean point). Returns (text, was_cut)."""
-    words = text.strip().split()
+    """Keep at most n words. Prefers the first whole clause (before ; or a dash)
+    so a sentence is never cut mid-thought. Returns (text, was_cut)."""
+    text = text.strip()
+    words = text.split()
     if len(words) <= n:
-        return text.strip(), False
+        return text, False
+    for sep in (";", " — ", " - ", ": "):
+        first = text.split(sep)[0].strip().rstrip(",")
+        if first != text and 3 <= len(first.split()) <= n:
+            return (first if first.endswith((".", "!", "?")) else first + "."), True
     words = words[:n]
     while len(words) > 1 and words[-1].strip(",;:—-").lower() in _DANGLING:
         words.pop()
@@ -94,7 +102,11 @@ def parse_day(value: str) -> date:
 
 
 def photo_url(path: str | None) -> str | None:
-    return f"/photos/{path}" if path else None
+    """Uploaded photos live in data/photos (/photos/...). Paths that already start with
+    "/" are bundled files in frontend/public (e.g. /pets/fynn.jpg) and are used as-is."""
+    if not path:
+        return None
+    return path if path.startswith("/") else f"/photos/{path}"
 
 
 def with_photo_url(row: sqlite3.Row) -> dict:
@@ -174,5 +186,5 @@ def save_photo(photo: tuple[bytes, str], prefix: str) -> str:
 
 
 def remove_photo(name: str | None) -> None:
-    if name:
+    if name and not name.startswith("/"):  # never delete bundled files in frontend/public
         (PHOTOS_DIR / name).unlink(missing_ok=True)

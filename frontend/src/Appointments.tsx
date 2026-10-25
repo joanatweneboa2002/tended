@@ -28,7 +28,7 @@ export function AppointmentSummary({ a, pet, role }: { a: Appointment; pet: Pet;
           </div>
           <p>
             {t.day} · {t.main}
-            {t.home && <span className="muted small"> ({t.home} {pet.name}'s time)</span>}
+            {t.yours && <span className="your-time"> · {t.yours} for you</span>}
           </p>
         </div>
       </div>

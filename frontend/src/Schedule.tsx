@@ -14,27 +14,28 @@ import {
   type Task,
   type TaskInput,
 } from './api'
-import { Field, Segmented } from './ui'
-import { stamp, todayIn, viewerTz, wallForViewer } from './time'
+import { Field, Segmented, When } from './ui'
+import { stampFor, todayIn, wallForViewer } from './time'
 import { SetupAgent } from './SetupAgent'
-import { IconCircle, TASK_LOOK } from './Icons'
+import { PawDoodle } from './Doodles'
+import { Icon, IconCircle, TASK_LOOK } from './Icons'
 import { ProgressRing } from './ProgressRing'
 import { TypeTag } from './TypeTag'
 
-/** A home-time HH:MM shown in the viewer's time, with home time underneath if different. */
+/** A home-time HH:MM, with the owner's own time underneath (owner view, when it differs). */
 export function WallTime({ day, hhmm, pet, role }: { day: string; hhmm: string; pet: Pet; role: Role }) {
   const t = wallForViewer(day, hhmm, pet, role)
   return (
     <span className="wall-time">
       {t.main}
-      {t.home && <small>{t.home} {pet.name}'s time</small>}
+      {t.yours && <small>{t.yours} for you</small>}
     </span>
   )
 }
 
 export function Schedule({ pet, role, onOpenActivity }: { pet: Pet; role: Role; onOpenActivity: () => void }) {
   const [section, setSection] = useState<'today' | 'edit' | 'history' | 'ai'>('today')
-  if (role === 'caretaker') return <DayTasks pet={pet} role={role} canCheckIn />
+  if (role === 'caretaker') return <DayTasks pet={pet} role={role} />
   return (
     <div className="stack">
       <div className="schedule-bar">
@@ -52,7 +53,7 @@ export function Schedule({ pet, role, onOpenActivity }: { pet: Pet; role: Role; 
         </button>
       </div>
       {section === 'ai' && <SetupAgent pet={pet} onOpenActivity={onOpenActivity} onChanged={() => {}} />}
-      {section === 'today' && <DayTasks pet={pet} role={role} canCheckIn={false} />}
+      {section === 'today' && <DayTasks pet={pet} role={role} />}
       {section === 'edit' && <ScheduleEditor pet={pet} />}
       {section === 'history' && <CheckinHistory pet={pet} role={role} />}
     </div>
@@ -63,7 +64,7 @@ export function Schedule({ pet, role, onOpenActivity }: { pet: Pet; role: Role; 
 // A day's tasks (caretaker checks in; owner sees status)
 // ---------------------------------------------------------------------------
 
-function DayTasks({ pet, role, canCheckIn }: { pet: Pet; role: Role; canCheckIn: boolean }) {
+function DayTasks({ pet, role }: { pet: Pet; role: Role }) {
   const [today] = useState(() => todayIn(pet.home_timezone))
   const [date, setDate] = useState(today)
   const [tasks, setTasks] = useState<DayTask[] | null>(null)
@@ -90,7 +91,7 @@ function DayTasks({ pet, role, canCheckIn }: { pet: Pet; role: Role; canCheckIn:
           <h2>{date === today ? 'Today' : formatDate(date, { weekday: 'long' })}</h2>
           <p className="muted small">
             {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' })}
-            {role === 'owner' && ` · ${pet.name}'s day, shown in your time`}
+            {role === 'owner' && ` · ${pet.name}'s home time, yours underneath`}
           </p>
         </div>
         <div className="day-nav">
@@ -105,10 +106,163 @@ function DayTasks({ pet, role, canCheckIn }: { pet: Pet; role: Role; canCheckIn:
 
       <ol className="task-list">
         {tasks?.map((t) => (
-          <TaskCard key={t.id} task={t} date={date} pet={pet} role={role} canCheckIn={canCheckIn} onSaved={load} />
+          <TaskCard key={t.id} task={t} date={date} pet={pet} role={role} onSaved={load} />
         ))}
       </ol>
     </div>
+  )
+}
+
+const UNDO_MS = 120_000
+
+/** Tick logic shared by the Schedule task cards and Home's timeline and Next up card:
+ *  one tap ticks a task off (optionally with a photo), meds ask once to confirm,
+ *  undo for 2 minutes. `onTicked` lets a parent keep the undo when this card goes away. */
+export function useTaskTick(
+  task: DayTask,
+  date: string,
+  role: Role,
+  onSaved: () => void,
+  onTicked?: (checkinId: number, title: string) => void,
+) {
+  const [confirmMeds, setConfirmMeds] = useState(false)
+  const [photo, setPhoto] = useState<File | null>(null) // waiting on the meds confirm
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ticked, setTicked] = useState<number | null>(null) // check-in id that can still be undone
+  const [bounce, setBounce] = useState(false)
+  const isMeds = task.type === 'meds'
+  const done = task.checkins.some((c) => c.status === 'done')
+
+  useEffect(() => {
+    if (ticked === null) return
+    const t = setTimeout(() => setTicked(null), UNDO_MS)
+    return () => clearTimeout(t)
+  }, [ticked])
+
+  const tick = async (withPhoto?: File) => {
+    if (done || busy) return
+    const file = withPhoto ?? photo
+    if (isMeds && !confirmMeds) {
+      setPhoto(file) // one extra tap for medication, so a stray tap can't record a dose
+      setConfirmMeds(true)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const c = await api.checkIn({ task_id: task.id, slot_date: date, status: 'done', role, photo: file })
+      setConfirmMeds(false)
+      setPhoto(null)
+      setTicked(c.id)
+      setBounce(true)
+      onTicked?.(c.id, task.title)
+      onSaved()
+    } catch (e) {
+      setError((e as Error).message)
+      if ((e as { status?: number }).status === 409) onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const undo = async () => {
+    if (ticked === null) return
+    try {
+      await api.undoCheckin(ticked)
+      setTicked(null)
+      onSaved()
+    } catch (e) {
+      setError((e as Error).message)
+      setTicked(null)
+    }
+  }
+
+  const cancelConfirm = () => {
+    setConfirmMeds(false)
+    setPhoto(null)
+  }
+
+  return { isMeds, done, confirmMeds, cancelConfirm, photo, busy, error, ticked, bounce, setBounce, tick, undo }
+}
+
+/** The round tick button (with a paw burst when it's ticked). */
+export function TickButton({ t, title }: { t: ReturnType<typeof useTaskTick>; title: string }) {
+  return (
+    <button
+      className={`tick ${t.done ? 'on' : ''} ${t.confirmMeds ? 'asking' : ''}`}
+      role="checkbox"
+      aria-checked={t.done}
+      aria-label={t.done ? `${title}: done` : `Tick off ${title}`}
+      onClick={() => t.tick()}
+      disabled={t.done || t.busy}
+    >
+      <Icon name="check" size={22} />
+      {t.bounce && (
+        <span className="paw-burst" aria-hidden>
+          <PawDoodle size={14} />
+          <PawDoodle size={11} />
+          <PawDoodle size={13} />
+        </span>
+      )}
+    </button>
+  )
+}
+
+/** Confirm row for meds + the undo link, shared by cards and rows. */
+export function TickExtras({ t, task }: { t: ReturnType<typeof useTaskTick>; task: DayTask }) {
+  return (
+    <>
+      {t.confirmMeds && !t.done && (
+        <div className="confirm-meds" role="alertdialog" aria-label="Confirm dose">
+          <p>
+            Mark <b>{task.dose || task.title}</b> as given{t.photo ? ' (with your photo)' : ''}?
+          </p>
+          <button className="btn primary small" onClick={() => t.tick()} disabled={t.busy}>
+            Yes, given
+          </button>
+          <button className="btn soft small" onClick={t.cancelConfirm}>
+            Not yet
+          </button>
+        </div>
+      )}
+      {t.ticked !== null && (
+        <p className="undo-row">
+          Ticked off{' '}
+          <button className="link-btn" onClick={t.undo}>
+            Undo
+          </button>
+        </p>
+      )}
+      {t.error && <p className="error">{t.error}</p>}
+    </>
+  )
+}
+
+const TYPE_WORD: Record<string, string> = { feed: 'Food', walk: 'Walk', meds: 'Meds', potty: 'Potty', other: 'Care' }
+
+/** One timeline row for Home: home time on the left (the owner's own time small
+ *  underneath), a colored dot for the task type, the task, a big round tick. */
+export function TodoRow({ task, date, pet, role, onSaved }: { task: DayTask; date: string; pet: Pet; role: Role; onSaved: () => void }) {
+  const t = useTaskTick(task, date, role, onSaved)
+  const when = wallForViewer(date, task.time, pet, role)
+  return (
+    <li
+      className={`tl-row type-${task.type} ${t.done ? 'is-done' : ''} ${t.bounce ? 'bounce' : ''}`}
+      onAnimationEnd={(e) => e.target === e.currentTarget && t.setBounce(false)}
+    >
+      <p className="tl-time">
+        {when.main}
+        {when.yours && <small>{when.yours}</small>}
+      </p>
+      <span className="tl-dot" aria-hidden />
+      <div className="tl-main">
+        <p className="tl-title">{task.title}</p>
+        <p className="tl-meta">{task.dose || TYPE_WORD[task.type] || 'Care'}</p>
+        <TickExtras t={t} task={task} />
+      </div>
+      <TickButton t={t} title={task.title} />
+    </li>
   )
 }
 
@@ -117,37 +271,35 @@ function TaskCard({
   date,
   pet,
   role,
-  canCheckIn,
   onSaved,
 }: {
   task: DayTask
   date: string
   pet: Pet
   role: Role
-  canCheckIn: boolean
   onSaved: () => void
 }) {
   const [mode, setMode] = useState<CheckinStatus | null>(null)
-  const [bounce, setBounce] = useState(false)
+  const t = useTaskTick(task, date, role, onSaved)
+  const { done, bounce, setBounce, confirmMeds } = t
   const look = TASK_LOOK[task.type]
   const isMeds = task.type === 'meds'
-  const given = isMeds && task.checkins.some((c) => c.status === 'done')
-  const done = task.checkins.some((c) => c.status === 'done')
+  const given = isMeds && done
   const missed = !done && task.checkins.some((c) => c.status === 'could_not')
 
   return (
     <li
       className={`task card tint-${look.tone} ${done ? 'is-done' : ''} ${missed ? 'is-missed' : ''} ${isMeds ? 'is-meds' : ''} ${bounce ? 'bounce' : ''}`}
-      onAnimationEnd={() => setBounce(false)}
+      onAnimationEnd={(e) => e.target === e.currentTarget && setBounce(false)}
     >
-      <div className="task-time">
-        <span className="task-icon">
-          <IconCircle name={done ? 'check' : look.icon} tone={done ? 'mint' : look.tone} size={44} />
-        </span>
-        <WallTime day={date} hhmm={task.time} pet={pet} role={role} />
-      </div>
+      <TickButton t={t} title={task.title} />
+
       <div className="task-main">
         <div className="task-head">
+          <span className="task-when">
+            <WallTime day={date} hhmm={task.time} pet={pet} role={role} />
+          </span>
+          <IconCircle name={look.icon} tone={look.tone} size={30} />
           <h3>{task.title}</h3>
           <TypeTag type={task.type} />
         </div>
@@ -157,20 +309,21 @@ function TaskCard({
         {task.checkins.length > 0 && (
           <ul className="checkin-list">
             {task.checkins.map((c) => (
-              <CheckinLine key={c.id} c={c} tz={viewerTz(pet, role)} />
+              <CheckinLine key={c.id} c={c} pet={pet} role={role} />
             ))}
           </ul>
         )}
 
-        {!canCheckIn ? (
-          task.checkins.length === 0 && <p className="muted small pending-note">Not checked in yet.</p>
-        ) : given ? (
+        <TickExtras t={t} task={task} />
+
+        {given ? (
           <p className="locked">🔒 Dose given. A second dose for this time slot is blocked.</p>
         ) : mode ? (
           <CheckinForm
             task={task}
             date={date}
             status={mode}
+            role={role}
             onCancel={() => setMode(null)}
             onSaved={(status) => {
               setMode(null)
@@ -180,21 +333,25 @@ function TaskCard({
             onBlocked={onSaved}
           />
         ) : (
-          <div className="task-actions">
-            <button className="btn primary" onClick={() => setMode('done')}>
-              {isMeds ? 'Mark dose given' : done ? 'Log again' : 'Done'}
-            </button>
-            <button className="btn soft" onClick={() => setMode('could_not')}>
-              Couldn't do it
-            </button>
-          </div>
+          !confirmMeds && (
+            <div className="task-links">
+              <button className="link-btn" onClick={() => setMode('done')}>
+                {done ? 'Add another note or photo' : 'Tick with a note or photo'}
+              </button>
+              {!done && (
+                <button className="link-btn" onClick={() => setMode('could_not')}>
+                  Couldn't do it
+                </button>
+              )}
+            </div>
+          )
         )}
       </div>
     </li>
   )
 }
 
-export function CheckinLine({ c, tz, showTask = false }: { c: Checkin; tz: string; showTask?: boolean }) {
+export function CheckinLine({ c, pet, role, showTask = false }: { c: Checkin; pet: Pet; role: Role; showTask?: boolean }) {
   return (
     <li className={`checkin ${c.status}`}>
       <span className="checkin-mark" aria-hidden>
@@ -208,7 +365,7 @@ export function CheckinLine({ c, tz, showTask = false }: { c: Checkin; tz: strin
           </strong>
           <span className="muted">
             {' '}
-            · {stamp(c.created_at, tz)}
+            · <When t={stampFor(c.created_at, pet, role)} />
             {c.caretaker_name && ` · ${c.caretaker_name}`}
           </span>
         </p>
@@ -228,6 +385,7 @@ function CheckinForm({
   task,
   date,
   status,
+  role,
   onCancel,
   onSaved,
   onBlocked,
@@ -235,6 +393,7 @@ function CheckinForm({
   task: DayTask
   date: string
   status: CheckinStatus
+  role: Role
   onCancel: () => void
   onSaved: (status: CheckinStatus) => void
   onBlocked: () => void
@@ -254,7 +413,7 @@ function CheckinForm({
     setSaving(true)
     setError(null)
     try {
-      await api.checkIn({ task_id: task.id, slot_date: date, status, reason, note, photo })
+      await api.checkIn({ task_id: task.id, slot_date: date, status, reason, note, photo, role })
       onSaved(status)
     } catch (err) {
       setError((err as Error).message)
@@ -543,7 +702,7 @@ function CheckinHistory({ pet, role }: { pet: Pet; role: Role }) {
               .slice()
               .sort((a, b) => a.slot_time.localeCompare(b.slot_time))
               .map((c) => (
-                <CheckinLine key={c.id} c={c} tz={viewerTz(pet, role)} showTask />
+                <CheckinLine key={c.id} c={c} pet={pet} role={role} showTask />
               ))}
           </ul>
         </section>

@@ -15,10 +15,29 @@ const SAMPLES = [
 const firstName = (name: string) => (name && name !== 'Owner' ? name.split(' ')[0] : 'the owner')
 const tel = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
-/** "Ask Tended" pill button that opens the helper sheet. */
-export function AskTendedButton({ pet, variant = 'pill' }: { pet: Pet; variant?: 'pill' | 'small' }) {
+/** "Ask Tended": a pill button, or the wide sky card on the caretaker's Home. Opens the helper sheet. */
+export function AskTendedButton({ pet, variant = 'pill' }: { pet: Pet; variant?: 'pill' | 'small' | 'card' }) {
   const [open, setOpen] = useState(false)
   const info = agentInfo(AGENT)
+  if (variant === 'card') {
+    return (
+      <>
+        <button className="ask-card" onClick={() => setOpen(true)}>
+          <span className="ask-card-icon" aria-hidden>
+            <Icon name="chat" size={24} />
+          </span>
+          <span className="ask-card-text">
+            <span>Questions about {pet.name}?</span>
+            <b>Ask Tended</b>
+          </span>
+          <span className="ask-card-go" aria-hidden>
+            ›
+          </span>
+        </button>
+        {open && createPortal(<AskSheet pet={pet} onClose={() => setOpen(false)} />, document.body)}
+      </>
+    )
+  }
   return (
     <>
       <button

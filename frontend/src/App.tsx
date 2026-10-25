@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type Pet, type Role } from './api'
 import { Appointments } from './Appointments'
 import { AgentActivity } from './AgentActivity'
-import { HeaderBlobs, PawDoodle } from './Doodles'
+import { PawDoodle } from './Doodles'
 import { EmergencyButton } from './EmergencyCard'
 import { Health } from './Health'
 import { Home, type Tab } from './Home'
@@ -22,6 +22,15 @@ const TABS: { id: Exclude<Tab, 'profile'>; label: string }[] = [
   { id: 'messages', label: 'Messages' },
   { id: 'appointments', label: 'Appointments' },
 ]
+
+const PAGE_TITLE: Record<Tab, string> = {
+  home: 'Home',
+  schedule: 'Schedule',
+  health: 'Health',
+  messages: 'Messages',
+  appointments: 'Appointments',
+  profile: 'Profile',
+}
 
 export default function App() {
   const [role, setRole] = useState<Role>(() => (localStorage.getItem(VIEW_KEY) === 'owner' ? 'owner' : 'caretaker'))
@@ -90,71 +99,70 @@ export default function App() {
 
   return (
     <div className={`app view-${role}`}>
-      <div className="app-header">
-      <HeaderBlobs />
-      <PawDoodle className="header-paw paw-a" size={46} rotate={-22} />
-      <PawDoodle className="header-paw paw-b" size={30} rotate={18} />
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden>
-            <PawDoodle size={24} />
-          </span>
-          <span className="brand-name">Tended</span>
-        </div>
-        <div className="topbar-right">
-        {role === 'owner' && pet && <AgentActivity pet={pet} open={activityOpen} onOpenChange={setActivityOpen} />}
-        <div className="view-switch" role="tablist" aria-label="View">
-          {(['owner', 'caretaker'] as const).map((v) => (
-            <button key={v} role="tab" aria-selected={role === v} className={role === v ? 'active' : ''} onClick={() => setRole(v)}>
-              {v === 'owner' ? 'Owner' : 'Caretaker'}
-            </button>
-          ))}
-        </div>
-        </div>
-      </header>
-
-      {pet && (
-        <section className="pet-header">
-          <button className="pet-photo-btn" onClick={() => go('profile')} aria-label={`Open ${pet.name}'s profile`}>
-            <span className="avatar-ring">
-              <PetAvatar pet={pet} size={84} />
+      <header className="app-top">
+        <div className="topbar">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden>
+              <PawDoodle size={20} />
             </span>
-            <span className="photo-hint" aria-hidden>
-              Profile
-            </span>
-          </button>
-          <div className="pet-header-text">
-            <h1>
-              {pet.name}
-              {pet.is_sample && <span className="badge sample">Sample</span>}
-            </h1>
-            <p className="muted small">
-              {[pet.species, pet.breed].filter(Boolean).join(' · ')} · {role === 'owner' ? 'Owner view' : 'Caretaker view'}
-            </p>
+            <span className="brand-name">Tended</span>
           </div>
-          <div className="pet-actions">
-          {pets && (pets.length > 1 || role === 'owner') && (
-            <div className="pet-switch">
-              {pets
-                .filter((p) => p.id !== pet.id)
-                .map((p) => (
-                  <button key={p.id} className="pet-chip" onClick={() => setPetId(p.id)} title={`Switch to ${p.name}`}>
-                    <PetAvatar pet={p} size={28} />
-                    <span>{p.name}</span>
-                  </button>
-                ))}
-              {role === 'owner' && (
-                <button className="pet-chip add" onClick={() => setAdding(true)}>
-                  + Add pet
+          <div className="topbar-right">
+            {role === 'owner' && pet && <AgentActivity pet={pet} open={activityOpen} onOpenChange={setActivityOpen} />}
+            <div className="view-switch" role="tablist" aria-label="View">
+              {(['owner', 'caretaker'] as const).map((v) => (
+                <button key={v} role="tab" aria-selected={role === v} className={role === v ? 'active' : ''} onClick={() => setRole(v)}>
+                  {v === 'owner' ? 'Owner' : 'Caretaker'}
                 </button>
-              )}
+              ))}
             </div>
-          )}
             <EmergencyButton petId={petId} />
           </div>
-        </section>
-      )}
-      </div>
+        </div>
+
+        {pets && pets.length > 0 && (
+          <nav className="pet-pills" aria-label="Your pets">
+            {pets.map((p) => (
+              <button
+                key={p.id}
+                className={`pet-pill ${p.id === petId && !adding ? 'active' : ''}`}
+                onClick={() => {
+                  setPetId(p.id)
+                  setAdding(false)
+                }}
+                aria-current={p.id === petId ? 'true' : undefined}
+              >
+                <PetAvatar pet={p} size={30} />
+                <span>{p.name}</span>
+              </button>
+            ))}
+            {role === 'owner' && (
+              <button className={`pet-pill add ${adding ? 'active' : ''}`} onClick={() => setAdding(true)}>
+                <span className="add-plus" aria-hidden>
+                  +
+                </span>
+                <span>Add pet</span>
+              </button>
+            )}
+          </nav>
+        )}
+
+        {pet && !adding && tab !== 'home' && (
+          <section className="page-head">
+            <div className="page-head-text">
+              <h1>{PAGE_TITLE[tab]}</h1>
+              <p>
+                {pet.name}
+                {[pet.species, pet.breed].filter(Boolean).length > 0 && ` · ${[pet.species, pet.breed].filter(Boolean).join(' · ')}`}
+                {pet.is_sample && <span className="badge sample">Sample</span>}
+              </p>
+            </div>
+            <button className="page-head-photo" onClick={() => go('profile')} aria-label={`Open ${pet.name}'s profile`}>
+              <PetAvatar pet={pet} size={72} />
+            </button>
+          </section>
+        )}
+      </header>
 
       <main>
         {error && <p className="error card">{error}</p>}

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, formatDate, type CheckRun, type LogSuggestionItem, type Pet } from './api'
 import { agentInfo } from './agents'
 import { IconCircle } from './Icons'
-import { stamp } from './time'
+import { PetAvatar } from './PetAvatar'
+import { stampFor } from './time'
+import { When } from './ui'
 
 /** Owner: latest check (urgent alerts on top, summary, other alerts) + Run check. */
 export function useLatestCheck(petId: number) {
@@ -27,8 +29,9 @@ export function CheckCard({
 }) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const tz = pet.owner_timezone
+  const [more, setMore] = useState(false)
   const summaryInfo = agentInfo('daily_summary')
+  const long = (check?.summary?.summary.length ?? 0) > 220 // about 4 lines on a phone
 
   const run = async () => {
     setRunning(true)
@@ -43,11 +46,15 @@ export function CheckCard({
   }
 
   return (
-    <section className="card check-card tint-pink" style={{ ['--agent' as string]: summaryInfo.color, ['--agent-soft' as string]: summaryInfo.soft }}>
-      <div className="tile-head">
-        <h2>
-          <IconCircle name="moon" tone="pink" size={38} /> Today's summary
-        </h2>
+    <section className="card note-card" style={{ ['--agent' as string]: summaryInfo.color, ['--agent-soft' as string]: summaryInfo.soft }}>
+      <div className="note-head">
+        <PetAvatar pet={pet} size={40} />
+        <div>
+          <h2>A note from Tended</h2>
+          <p className="muted small">
+            {check?.summary ? <When t={stampFor(check.summary.written_at, pet, 'owner')} /> : `Today's summary for ${pet.name}`}
+          </p>
+        </div>
         <button className="link-btn" onClick={onOpenActivity}>
           Activity ›
         </button>
@@ -69,8 +76,12 @@ export function CheckCard({
         </div>
       ) : check?.summary ? (
         <>
-          <p className="summary-text">{check.summary.summary}</p>
-          <p className="muted small">Written {stamp(check.summary.written_at, tz)}</p>
+          <p className={`summary-text ${long && !more ? 'clamped' : ''}`}>{check.summary.summary}</p>
+          {long && (
+            <button className="link-btn read-more" onClick={() => setMore(!more)} aria-expanded={more}>
+              {more ? 'Show less' : 'Read more'}
+            </button>
+          )}
         </>
       ) : (
         <p className="muted">
@@ -100,7 +111,7 @@ export function CheckCard({
         </button>
         {check && !running && (
           <span className="muted small">
-            Last check {stamp(check.created_at, tz)} · {check.budget.calls}/{check.budget.max_calls} AI calls ·{' '}
+            Last check <When t={stampFor(check.created_at, pet, 'owner')} /> · {check.budget.calls}/{check.budget.max_calls} AI calls ·{' '}
             {check.budget.tokens.toLocaleString()}/{check.budget.max_tokens.toLocaleString()} tokens
           </span>
         )}

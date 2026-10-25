@@ -21,6 +21,7 @@ from backend.common import (
     home_to_utc,
     limit_words,
     pet_out,
+    photo_url,
     utc_iso,
 )
 from backend.db import connect
@@ -163,8 +164,7 @@ def _checkin(row) -> dict | None:
     if row is None:
         return None
     c = dict(row)
-    path = c.pop("photo_path")
-    c["photo_url"] = f"/photos/{path}" if path else None
+    c["photo_url"] = photo_url(c.pop("photo_path"))
     return c
 
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type AgentEvent, type Pet } from './api'
 import { AgentBadge, agentInfo } from './agents'
-import { stamp, timeIn } from './time'
+import { stampFor } from './time'
+import { When } from './ui'
 
 const POLL_MS = 2500
 
@@ -73,8 +74,6 @@ export function AgentActivity({ pet, open, onOpenChange }: { pet: Pet; open: boo
     return [...groups.values()].map((list) => list.slice().reverse())
   }, [events])
 
-  const tz = pet.owner_timezone
-
   return (
     <>
       <button className="activity-btn" onClick={() => onOpenChange(true)} aria-haspopup="dialog" title="Agent activity">
@@ -89,7 +88,7 @@ export function AgentActivity({ pet, open, onOpenChange }: { pet: Pet; open: boo
             <header className="drawer-head">
               <div>
                 <h2>Agent activity</h2>
-                <p className="muted small">What the AI agents did for {pet.name}, step by step. Times are your local time.</p>
+                <p className="muted small">What the AI agents did for {pet.name}, step by step. Times are {pet.name}'s home time, yours in gray.</p>
               </div>
               <button className="icon-btn" onClick={() => onOpenChange(false)} aria-label="Close">
                 ✕
@@ -109,7 +108,7 @@ export function AgentActivity({ pet, open, onOpenChange }: { pet: Pet; open: boo
                       <AgentBadge agent={first.agent} size={30} />
                       <div>
                         <strong>{info.name}</strong>
-                        <span className="muted small"> · started {stamp(first.created_at, tz)}</span>
+                        <span className="muted small"> · started <When t={stampFor(first.created_at, pet, 'owner')} /></span>
                       </div>
                     </div>
                     <ol className="steps">
@@ -118,7 +117,7 @@ export function AgentActivity({ pet, open, onOpenChange }: { pet: Pet; open: boo
                           <span className="step-dot" aria-hidden />
                           <div>
                             <p className="step-meta">
-                              <b>{KIND_LABEL[e.kind] ?? e.kind}</b> · {timeIn(new Date(e.created_at), tz)}
+                              <b>{KIND_LABEL[e.kind] ?? e.kind}</b> · <When t={stampFor(e.created_at, pet, 'owner', false)} />
                             </p>
                             <p className="step-msg">{e.message}</p>
                             {e.kind === 'model_call' && e.detail && <TokenChips d={e.detail} />}

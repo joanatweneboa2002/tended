@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { api, type Message, type Pet, type Role } from './api'
 import { AskTendedButton } from './AskTended'
-import { dayIn, timeIn, viewerTz } from './time'
+import { dayIn, stampFor } from './time'
+import { When } from './ui'
 
 const POLL_MS = 4000
 
@@ -10,7 +11,7 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
   const [error, setError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const lastId = useRef(0)
-  const tz = viewerTz(pet, role)
+  const tz = pet.home_timezone // days and times in the pet's home time; the owner also sees theirs
 
   const load = useCallback(async () => {
     try {
@@ -43,9 +44,9 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
     <div className="chat card">
       <header className="chat-head">
         <div>
-          <h2>Messages</h2>
+          <h2>Chat with {other}</h2>
           <p className="muted small">
-            About {pet.name}, with {other}. Times are your local time.
+            About {pet.name}. Times are {pet.name}'s home time{role === 'owner' ? ', yours in gray' : ''}.
           </p>
         </div>
         {role === 'caretaker' && <AskTendedButton pet={pet} variant="small" />}
@@ -62,7 +63,7 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
           return (
             <div key={m.id}>
               {day !== prevDay && <p className="chat-day">{day}</p>}
-              <div className={`bubble-row ${mine ? 'mine' : 'theirs'}`}>
+              <div className={`bubble-row ${mine ? 'mine' : 'theirs'} from-${m.sender_role}`}>
                 <div className="bubble">
                   {!mine && <p className="bubble-name">{m.sender_name}</p>}
                   {m.photo_url && (
@@ -72,7 +73,7 @@ export function Messages({ pet, role, onRead }: { pet: Pet; role: Role; onRead: 
                   )}
                   {m.text && <p className="bubble-text">{m.text}</p>}
                   <p className="bubble-meta">
-                    {mine ? 'You' : m.sender_name} · {timeIn(d, tz)}
+                    {mine ? 'You' : m.sender_name} · <When t={stampFor(m.created_at, pet, role, false)} />
                   </p>
                 </div>
               </div>

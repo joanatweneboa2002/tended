@@ -68,15 +68,16 @@ function DotIcon() {
 }
 
 export const AGENTS: Record<string, AgentInfo> = {
-  setup_agent: { name: 'Setup agent', color: '#0f9d94', soft: '#ddf4f1', Icon: WandIcon },
-  caretaker_helper: { name: 'Ask Tended', color: '#4f7bff', soft: '#e8eeff', Icon: AskIcon },
-  watchdog: { name: 'Watchdog', color: '#e8590c', soft: '#fdebdd', Icon: EyeIcon },
-  daily_summary: { name: 'Daily summary', color: '#c2417f', soft: '#fbe4ef', Icon: MoonIcon },
-  coordinator: { name: 'Coordinator', color: '#16181d', soft: '#e2e5ea', Icon: FlowIcon },
+  // color: accents and the badge circle (ink icon on top, never text); soft: panel tints
+  setup_agent: { name: 'Setup agent', color: '#8fe0c3', soft: '#d4f5e9', Icon: WandIcon },
+  caretaker_helper: { name: 'Ask Tended', color: '#4da3f7', soft: '#e3f0ff', Icon: AskIcon },
+  watchdog: { name: 'Watchdog', color: '#ffb020', soft: '#fff1d6', Icon: EyeIcon },
+  daily_summary: { name: 'Daily summary', color: '#8b7cf6', soft: '#eeeaff', Icon: MoonIcon },
+  coordinator: { name: 'Coordinator', color: '#cfd3dc', soft: '#e8eaf0', Icon: FlowIcon },
 }
 
 export function agentInfo(key: string): AgentInfo {
-  return AGENTS[key] ?? { name: key.replace(/_/g, ' '), color: '#5b6170', soft: '#eef0f3', Icon: DotIcon }
+  return AGENTS[key] ?? { name: key.replace(/_/g, ' '), color: '#cfd3dc', soft: '#eef0f3', Icon: DotIcon }
 }
 
 export function AgentBadge({ agent, size = 32 }: { agent: string; size?: number }) {

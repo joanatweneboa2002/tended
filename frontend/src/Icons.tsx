@@ -20,7 +20,7 @@ export type IconName =
 
 // Tones: each section's accent. Dark icons on light accents, white on dark ones
 // (all >= 3:1 against the circle, so the icon is easy to see).
-export type Tone = 'coral' | 'yellow' | 'mint' | 'violet' | 'blue' | 'pink' | 'amber' | 'gray'
+export type Tone = 'coral' | 'yellow' | 'mint' | 'violet' | 'blue' | 'pink' | 'amber' | 'gray' | 'red'
 
 const S = {
   width: 22,
