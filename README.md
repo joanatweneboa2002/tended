@@ -69,7 +69,7 @@ OPENAI_MODEL=gpt-5.6-luna
 
 - **Where `.env` can go:** the backend looks for `.env` in the repo folder (`tended/.env`) first, then one folder up (next to the `tended` folder). If a key is in both, the repo folder's value wins. Keep the file out of git; `.gitignore` already excludes it.
 - **`OPENAI_MODEL`:** any OpenAI model your key can use that supports structured outputs. The project uses `gpt-5.6-luna`.
-- **Without a key:** the app still runs, and only the AI buttons show an error.
+- **Without a key:** everything else still works. Run check and Set up with AI show an error, and Ask Tended says the AI is unavailable. Its emergency override (e.g. "she ate a lily leaf") still works, because it doesn't use AI.
 
 ### 6. Start it (two terminals)
 

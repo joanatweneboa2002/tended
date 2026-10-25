@@ -290,6 +290,7 @@ export interface HelperRun {
   suggest_message_owner: boolean
   messaged_owner: boolean
   owner_name: string
+  error?: string
 }
 
 export interface WatchAlert {

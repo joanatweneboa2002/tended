@@ -229,6 +229,7 @@ function Exchange({ run, onUpdate }: { run: HelperRun; onUpdate: (r: HelperRun) 
       ) : run.status === 'not_sure' ? (
         <div className="ask-a not-sure">
           <p>{run.answer}</p>
+          {run.error && <p className="muted small">AI unavailable: {run.error}</p>}
           {sendButton(`Send this question to ${owner}`, 'btn primary small')}
         </div>
       ) : (
