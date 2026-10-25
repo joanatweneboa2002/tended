@@ -17,6 +17,8 @@ import {
 import { Field, Segmented } from './ui'
 import { stamp, todayIn, viewerTz, wallForViewer } from './time'
 import { SetupAgent } from './SetupAgent'
+import { IconCircle, TASK_LOOK } from './Icons'
+import { ProgressRing } from './ProgressRing'
 import { TypeTag } from './TypeTag'
 
 /** A home-time HH:MM shown in the viewer's time, with home time underneath if different. */
@@ -83,7 +85,8 @@ function DayTasks({ pet, role, canCheckIn }: { pet: Pet; role: Role; canCheckIn:
   return (
     <div className="stack">
       <section className="card day-head">
-        <div>
+        {tasks && tasks.length > 0 && <ProgressRing done={doneCount} total={tasks.length} size={84} />}
+        <div className="day-head-text">
           <h2>{date === today ? 'Today' : formatDate(date, { weekday: 'long' })}</h2>
           <p className="muted small">
             {formatDate(date, { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -96,17 +99,6 @@ function DayTasks({ pet, role, canCheckIn }: { pet: Pet; role: Role; canCheckIn:
           <button className="btn ghost small" onClick={() => setDate(addDays(date, 1))} disabled={date >= today}>Later ›</button>
         </div>
       </section>
-
-      {tasks && tasks.length > 0 && (
-        <div className="progress" aria-label={`${doneCount} of ${tasks.length} tasks done`}>
-          <div className="progress-bar">
-            <span style={{ width: `${(doneCount / tasks.length) * 100}%` }} />
-          </div>
-          <span className="muted">
-            {doneCount} of {tasks.length} done
-          </span>
-        </div>
-      )}
 
       {error && <p className="error">{error}</p>}
       {tasks && tasks.length === 0 && <p className="empty card">Nothing scheduled for {pet.name} on this day.</p>}
@@ -136,14 +128,22 @@ function TaskCard({
   onSaved: () => void
 }) {
   const [mode, setMode] = useState<CheckinStatus | null>(null)
+  const [bounce, setBounce] = useState(false)
+  const look = TASK_LOOK[task.type]
   const isMeds = task.type === 'meds'
   const given = isMeds && task.checkins.some((c) => c.status === 'done')
   const done = task.checkins.some((c) => c.status === 'done')
   const missed = !done && task.checkins.some((c) => c.status === 'could_not')
 
   return (
-    <li className={`task card ${done ? 'is-done' : ''} ${missed ? 'is-missed' : ''} ${isMeds ? 'is-meds' : ''}`}>
+    <li
+      className={`task card tint-${look.tone} ${done ? 'is-done' : ''} ${missed ? 'is-missed' : ''} ${isMeds ? 'is-meds' : ''} ${bounce ? 'bounce' : ''}`}
+      onAnimationEnd={() => setBounce(false)}
+    >
       <div className="task-time">
+        <span className="task-icon">
+          <IconCircle name={done ? 'check' : look.icon} tone={done ? 'mint' : look.tone} size={44} />
+        </span>
         <WallTime day={date} hhmm={task.time} pet={pet} role={role} />
       </div>
       <div className="task-main">
@@ -172,8 +172,9 @@ function TaskCard({
             date={date}
             status={mode}
             onCancel={() => setMode(null)}
-            onSaved={() => {
+            onSaved={(status) => {
               setMode(null)
+              if (status === 'done') setBounce(true)
               onSaved()
             }}
             onBlocked={onSaved}
@@ -235,7 +236,7 @@ function CheckinForm({
   date: string
   status: CheckinStatus
   onCancel: () => void
-  onSaved: () => void
+  onSaved: (status: CheckinStatus) => void
   onBlocked: () => void
 }) {
   const [note, setNote] = useState('')
@@ -254,7 +255,7 @@ function CheckinForm({
     setError(null)
     try {
       await api.checkIn({ task_id: task.id, slot_date: date, status, reason, note, photo })
-      onSaved()
+      onSaved(status)
     } catch (err) {
       setError((err as Error).message)
       if ((err as { status?: number }).status === 409) onBlocked()

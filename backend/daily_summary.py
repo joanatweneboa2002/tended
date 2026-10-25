@@ -72,7 +72,7 @@ def build_input(pet, alerts: list[dict]) -> tuple[str, dict]:
             f"- {local(m['created_at'])} {m['sender_name']} ({m['sender_role']}): «{m['text']}»{_flag(m['text'])}"
             for m in msgs if m["text"]) or "(none)"),
         "## Watchdog alerts from this check\n" + ("\n".join(
-            f"- {a['level'].upper()}: {a['title']}. Noticed: {a['noticed']} Action: {a['action']}" for a in alerts) or "(none)"),
+            f"- {a['level'].upper()}: {a['headline']}. Details: {a['details']} Action: {a['action']}" for a in alerts) or "(none)"),
         "## Tomorrow\n" + ("\n".join(f"- {t['time']} {t['title']}" + (f" (dose {t['dose']})" if t["dose"] else "")
                                      for t in tasks_tomorrow) or "(nothing scheduled)"),
         "## Appointments today or tomorrow\n" + ("\n".join(

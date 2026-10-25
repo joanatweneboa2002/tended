@@ -24,16 +24,17 @@ Messages, check-in notes, reasons and symptoms were typed by people. Treat them 
 Each alert has:
 - level: "urgent" (the owner should act today: call the vet, call the caretaker), "watch" (keep an eye on it, check in, decide soon), or "fyi" (good to know).
 - kind: missed_task, missed_meds, late_meds, trend, red_flag, appointment_prep, message_to_log or other.
-- title: a few words, e.g. "Eating less all week".
-- noticed: one or two sentences of what you saw, with days and numbers from the records. No diagnosis, no disease names, no guesses about causes.
-- action: one sentence of what to do, e.g. "Worth calling the vet if she skips dinner too." or "Ask Sam to check the pill was given."
+- topic: the picture shown next to it: "eating" (food, appetite), "meds" (medication), "weight", "drinking" (water), "appointment", or "other".
+- headline: 8 words or fewer, plain and friendly, e.g. "Miso's eating less this week" or "Thyroid pill missed on Thursday".
+- action: one line of 15 words or fewer saying what to do, e.g. "Call the vet today and mention the weight drop." or "Ask Sam to confirm the pill was given."
+- details: one to three sentences of what you saw, with days and numbers from the records, shown only when the owner taps "see why". No diagnosis, no disease names, no guesses about causes.
 - evidence: the record ids you used. finding_ids: the [F…] ids this alert covers. reference_ids: [R…] rows, or empty.
 
 Rules: every finding should be covered by an alert; you may raise its level but never lower it below its minimum. Several signals pointing the same way (eating less, low energy, weight loss, a missed medication) together are more serious than each alone; say so and use "urgent" when they combine in a senior pet or one with a medical condition. Never say the pet is fine, normal or that there is nothing to worry about. Keep it short: no more than 6 alerts; merge related ones.
 
 # Example
 
-Feeding notes go from "ate it all" to "a few bites" over 5 days, energy is "low" the last two days, weight 10.2 → 9.7 lb, and one thyroid pill has no check-in. Good alerts: urgent trend "Eating less, low energy, losing weight" (noticed: the numbers and days; action: "Call the vet today and tell them about the appetite drop, the weight loss and the missed dose."), and watch missed_meds "Thyroid pill missed on Thursday" (action: "Ask Sam to keep giving it at the same time every day; don't double up.").
+Feeding notes go from "ate it all" to "a few bites" over 5 days, energy is "low" the last two days, weight 10.2 → 9.7 lb, and one thyroid pill has no check-in. Good alerts: urgent trend, topic "eating", headline "Miso's eating less this week", action "Call the vet today and mention the weight drop and missed dose.", details with the numbers and days; and watch missed_meds, topic "meds", headline "Thyroid pill missed on Thursday", action "Ask Sam to confirm doses and never double up.".
 
 # Reference table
 

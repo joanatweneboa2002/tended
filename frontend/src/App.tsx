@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type Pet, type Role } from './api'
 import { Appointments } from './Appointments'
 import { AgentActivity } from './AgentActivity'
-import { PawDoodle } from './Doodles'
+import { HeaderBlobs, PawDoodle } from './Doodles'
 import { EmergencyButton } from './EmergencyCard'
 import { Health } from './Health'
 import { Home, type Tab } from './Home'
@@ -91,6 +91,7 @@ export default function App() {
   return (
     <div className={`app view-${role}`}>
       <div className="app-header">
+      <HeaderBlobs />
       <PawDoodle className="header-paw paw-a" size={46} rotate={-22} />
       <PawDoodle className="header-paw paw-b" size={30} rotate={18} />
       <header className="topbar">
@@ -112,10 +113,12 @@ export default function App() {
         </div>
       </header>
 
-      {pet && !adding && (
+      {pet && (
         <section className="pet-header">
           <button className="pet-photo-btn" onClick={() => go('profile')} aria-label={`Open ${pet.name}'s profile`}>
-            <PetAvatar pet={pet} size={60} />
+            <span className="avatar-ring">
+              <PetAvatar pet={pet} size={84} />
+            </span>
             <span className="photo-hint" aria-hidden>
               Profile
             </span>
@@ -129,6 +132,7 @@ export default function App() {
               {[pet.species, pet.breed].filter(Boolean).join(' · ')} · {role === 'owner' ? 'Owner view' : 'Caretaker view'}
             </p>
           </div>
+          <div className="pet-actions">
           {pets && (pets.length > 1 || role === 'owner') && (
             <div className="pet-switch">
               {pets
@@ -146,6 +150,8 @@ export default function App() {
               )}
             </div>
           )}
+            <EmergencyButton petId={petId} />
+          </div>
         </section>
       )}
       </div>
@@ -211,7 +217,6 @@ export default function App() {
         </footer>
       )}
 
-      <EmergencyButton petId={adding ? null : petId} />
 
       <nav className="bottom-nav" aria-label="Sections">
         {TABS.map((t) => (

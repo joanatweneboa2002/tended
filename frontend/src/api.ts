@@ -143,9 +143,12 @@ export interface Message {
 }
 
 export interface Alert {
-  level: 'urgent' | 'warning' | 'info'
+  level: 'urgent' | 'watch' | 'fyi'
   kind: string
-  text: string
+  topic: string
+  headline: string
+  action: string
+  details: string
   at: string | null
 }
 
@@ -296,8 +299,11 @@ export interface HelperRun {
 export interface WatchAlert {
   level: 'urgent' | 'watch' | 'fyi'
   kind: string
-  title: string
-  noticed: string
+  topic?: string
+  headline?: string
+  details?: string
+  title?: string // checks saved before headline/details existed
+  noticed?: string
   action: string
   evidence: string[]
   references: { id: string; topic: string; source: string }[]

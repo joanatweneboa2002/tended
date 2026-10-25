@@ -27,3 +27,4 @@ timestamp,agent,provider,model,input_tokens,cached_tokens,output_tokens,duration
 2026-10-25T15:13:45+00:00,caretaker_helper,openai,gpt-5.6-luna,6026,5174,153,2729,
 2026-10-25T15:17:06+00:00,watchdog,openai,gpt-5.6-luna,8004,5480,1160,11588,
 2026-10-25T15:17:09+00:00,daily_summary,openai,gpt-5.6-luna,1848,1293,128,2296,
+2026-10-25T17:37:14+00:00,caretaker_helper,openai,gpt-5.6-luna,5948,5174,53,1543,8

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, formatDate, type CheckRun, type LogSuggestionItem, type Pet, type WatchAlert } from './api'
-import { AgentBadge, agentInfo } from './agents'
+import { api, formatDate, type CheckRun, type LogSuggestionItem, type Pet } from './api'
+import { agentInfo } from './agents'
+import { IconCircle } from './Icons'
 import { stamp } from './time'
-
-const LEVEL_LABEL = { urgent: 'Urgent', watch: 'Watch', fyi: 'FYI' }
 
 /** Owner: latest check (urgent alerts on top, summary, other alerts) + Run check. */
 export function useLatestCheck(petId: number) {
@@ -13,26 +12,6 @@ export function useLatestCheck(petId: number) {
   }, [petId])
   useEffect(load, [load])
   return { check, setCheck, reload: load }
-}
-
-export function UrgentWatch({ check }: { check: CheckRun | null | undefined }) {
-  const urgent = check?.alerts.filter((a) => a.level === 'urgent') ?? []
-  if (!urgent.length) return null
-  return (
-    <section className="watch-urgent" aria-label="Urgent alerts from the Watchdog">
-      {urgent.map((a, i) => (
-        <article key={i} className="watch-urgent-item" role="alert">
-          <p className="wu-kicker">
-            <AgentBadge agent="watchdog" size={22} /> Urgent · Watchdog
-          </p>
-          <h2>{a.title}</h2>
-          <p>{a.noticed}</p>
-          <p className="wu-action">→ {a.action}</p>
-          <Refs alert={a} light />
-        </article>
-      ))}
-    </section>
-  )
 }
 
 export function CheckCard({
@@ -64,10 +43,10 @@ export function CheckCard({
   }
 
   return (
-    <section className="card check-card" style={{ ['--agent' as string]: summaryInfo.color, ['--agent-soft' as string]: summaryInfo.soft }}>
+    <section className="card check-card tint-pink" style={{ ['--agent' as string]: summaryInfo.color, ['--agent-soft' as string]: summaryInfo.soft }}>
       <div className="tile-head">
         <h2>
-          <AgentBadge agent="daily_summary" size={28} /> Today's summary
+          <IconCircle name="moon" tone="pink" size={38} /> Today's summary
         </h2>
         <button className="link-btn" onClick={onOpenActivity}>
           Activity ›
@@ -130,56 +109,6 @@ export function CheckCard({
   )
 }
 
-export function WatchList({ check }: { check: CheckRun | null | undefined }) {
-  const rest = check?.alerts.filter((a) => a.level !== 'urgent') ?? []
-  if (!check) return null
-  const info = agentInfo('watchdog')
-  return (
-    <section className="card watch-list" style={{ ['--agent' as string]: info.color, ['--agent-soft' as string]: info.soft }}>
-      <div className="tile-head">
-        <h2>
-          <AgentBadge agent="watchdog" size={28} /> Watchdog
-        </h2>
-        <span className="muted small">
-          {check.alerts.length} alert{check.alerts.length !== 1 ? 's' : ''} from the last check
-        </span>
-      </div>
-      {rest.length === 0 ? (
-        <p className="muted small">
-          {check.alerts.length ? 'Only the urgent alerts above.' : 'Nothing flagged in the last check.'}
-        </p>
-      ) : (
-        <ul className="watch-items">
-          {rest.map((a, i) => (
-            <li key={i} className={`watch-item lvl-${a.level}`}>
-              <span className={`lvl-chip lvl-${a.level}`}>{LEVEL_LABEL[a.level]}</span>
-              <div>
-                <strong>{a.title}</strong>
-                <p className="small">{a.noticed}</p>
-                <p className="small wi-action">→ {a.action}</p>
-                <Refs alert={a} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-function Refs({ alert, light = false }: { alert: WatchAlert; light?: boolean }) {
-  if (!alert.references.length) return null
-  return (
-    <p className={`refs ${light ? 'light' : ''}`}>
-      {alert.references.map((r) => (
-        <span key={r.id} className="source-chip src-reference">
-          📚 {r.topic} <em>({r.source})</em>
-        </span>
-      ))}
-    </p>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Caretaker: approve health-log entries the Watchdog spotted in messages
 // ---------------------------------------------------------------------------
@@ -215,10 +144,10 @@ export function SuggestionsCard({ pet }: { pet: Pet }) {
 
   if (!items.length) return null
   return (
-    <section className="card suggestions" style={{ ['--agent' as string]: info.color, ['--agent-soft' as string]: info.soft }}>
+    <section className="card suggestions tint-coral" style={{ ['--agent' as string]: info.color, ['--agent-soft' as string]: info.soft }}>
       <div className="tile-head">
         <h2>
-          <AgentBadge agent="watchdog" size={28} /> Log this?
+          <IconCircle name="clipboard" tone="coral" size={38} /> Log this?
         </h2>
         <span className="muted small">Spotted in your messages. Nothing is logged unless you say yes.</span>
       </div>

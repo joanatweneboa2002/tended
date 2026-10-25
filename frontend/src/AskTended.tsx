@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { api, type HelperRun, type HelperSource, type Pet } from './api'
 import { AgentBadge, agentInfo } from './agents'
+import { Icon } from './Icons'
 
 const AGENT = 'caretaker_helper'
 
@@ -25,7 +26,9 @@ export function AskTendedButton({ pet, variant = 'pill' }: { pet: Pet; variant?:
         style={{ ['--agent' as string]: info.color, ['--agent-soft' as string]: info.soft }}
         onClick={() => setOpen(true)}
       >
-        <AgentBadge agent={AGENT} size={variant === 'small' ? 24 : 30} />
+        <span className="ask-btn-icon" aria-hidden>
+          <Icon name="chat" size={variant === 'small' ? 16 : 20} />
+        </span>
         <span>Ask Tended</span>
       </button>
       {open && createPortal(<AskSheet pet={pet} onClose={() => setOpen(false)} />, document.body)}
@@ -194,13 +197,20 @@ function Exchange({ run, onUpdate }: { run: HelperRun; onUpdate: (r: HelperRun) 
       <p className="ask-q">{run.question}</p>
 
       {run.status === 'emergency' && run.emergency ? (
-        <section className="urgent" role="alert">
-          <p className="urgent-title">🚨 This could be an emergency</p>
+        <section className="urgent-card" role="alert">
+          <div className="urgent-head">
+            <span className="urgent-icon" aria-hidden>
+              <Icon name="heartPulse" size={26} />
+            </span>
+            <div>
+              <p className="urgent-title">Let's call the vet now</p>
+              <p className="urgent-sub">This could be an emergency. You're doing the right thing by checking.</p>
+            </div>
+          </div>
           <p className="urgent-reason">{run.emergency.reason}</p>
-          <p className="urgent-do">Don't wait to see if it gets better. Call the vet now.</p>
           {run.emergency.vet_phone ? (
             <a className="call-vet" href={tel(run.emergency.vet_phone)}>
-              <span>📞 Call {run.emergency.vet_name || 'the vet'}</span>
+              <span>Call {run.emergency.vet_name || 'the vet'}</span>
               <b>{run.emergency.vet_phone}</b>
             </a>
           ) : (
@@ -217,7 +227,7 @@ function Exchange({ run, onUpdate }: { run: HelperRun; onUpdate: (r: HelperRun) 
             )}
           </p>
           <div className="urgent-actions">
-            {sendButton(`💬 Message ${owner} now`, 'btn urgent-msg')}
+            {sendButton(`Message ${owner} now`, 'btn primary')}
             {run.emergency.owner_phone && (
               <a className="btn soft small" href={tel(run.emergency.owner_phone)}>
                 Call {owner}

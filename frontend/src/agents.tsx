@@ -69,7 +69,7 @@ function DotIcon() {
 
 export const AGENTS: Record<string, AgentInfo> = {
   setup_agent: { name: 'Setup agent', color: '#0f9d94', soft: '#ddf4f1', Icon: WandIcon },
-  caretaker_helper: { name: 'Ask Tended', color: '#3b6fe0', soft: '#e3ecfc', Icon: AskIcon },
+  caretaker_helper: { name: 'Ask Tended', color: '#4f7bff', soft: '#e8eeff', Icon: AskIcon },
   watchdog: { name: 'Watchdog', color: '#e8590c', soft: '#fdebdd', Icon: EyeIcon },
   daily_summary: { name: 'Daily summary', color: '#c2417f', soft: '#fbe4ef', Icon: MoonIcon },
   coordinator: { name: 'Coordinator', color: '#16181d', soft: '#e2e5ea', Icon: FlowIcon },

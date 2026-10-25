@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, formatDate, type Alert, type Dashboard, type Message, type Pet, type Role } from './api'
+import { api, formatDate, type Alert, type CheckRun, type Dashboard, type Message, type Pet, type Role } from './api'
+import { AlertStack, type AlertItem } from './AlertStack'
 import { AppointmentSummary } from './Appointments'
 import { AskTendedButton } from './AskTended'
-import { CheckCard, SuggestionsCard, UrgentWatch, useLatestCheck, WatchList } from './CheckPanel'
+import { CheckCard, SuggestionsCard, useLatestCheck } from './CheckPanel'
 import { GreetBlob, PawDoodle } from './Doodles'
+import { IconCircle, TASK_LOOK, type IconName, type Tone } from './Icons'
+import { ProgressRing } from './ProgressRing'
 import { greeting, stamp, timeIn, wallForViewer } from './time'
 import { TypeTag } from './TypeTag'
 
@@ -48,24 +51,29 @@ function CaretakerHome({ d, pet, go }: { d: Dashboard; pet: Pet; go: (t: Tab) =>
       <section className="card greet">
         <GreetBlob />
         <PawDoodle className="greet-paw" size={34} rotate={16} />
-        <p className="kicker">{formatDate(d.today, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-        <h1>
-          {greeting(tz)}, {pet.caretaker_name || 'there'}
-        </h1>
-        <p className="muted">Here's {pet.name}'s day.</p>
-        <Progress done={d.progress.done} total={d.progress.total} />
+        <div className="greet-row">
+          <div className="greet-text">
+            <p className="kicker">{formatDate(d.today, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            <h1>
+              {greeting(tz)}, {pet.caretaker_name || 'there'}
+            </h1>
+            <p className="muted">Here's {pet.name}'s day.</p>
+          </div>
+          <ProgressRing done={d.progress.done} total={d.progress.total} />
+        </div>
         <div className="greet-actions">
           <AskTendedButton pet={pet} />
           <span className="muted small">Questions about {pet.name}? Ask here first.</span>
         </div>
       </section>
 
+      <AlertStack alerts={todayAlerts(d.alerts)} tz={tz} emptyText="Nothing needs attention right now." />
+
       <SuggestionsCard pet={pet} />
 
-      <Alerts alerts={d.alerts} tz={tz} />
-
-      <section className="card tile">
-        <TileHead title="Next up" action="See schedule" onAction={() => go('schedule')} />
+      <section className={`card tile tint-${next ? TASK_LOOK[next.type].tone : 'yellow'}`}>
+        <TileHead title="Next up" icon={next ? TASK_LOOK[next.type].icon : 'clipboard'} tone={next ? TASK_LOOK[next.type].tone : 'yellow'}
+          action="See schedule" onAction={() => go('schedule')} />
         {next ? (
           <div className="next-task">
             <span className="next-time">{wallForViewer(d.today, next.time, pet, 'caretaker').main}</span>
@@ -105,18 +113,22 @@ function OwnerHome({ d, pet, go, now, onOpenActivity }: { d: Dashboard; pet: Pet
   const last = d.latest_checkin
   return (
     <div className="dash">
-      <UrgentWatch check={check} />
+      <AlertStack alerts={[...watchAlerts(check), ...todayAlerts(d.alerts)]} tz={tz} emptyText="Nothing needs attention right now." />
       <section className="card greet">
         <GreetBlob />
         <PawDoodle className="greet-paw" size={34} rotate={16} />
-        <p className="kicker">
-          {pet.name}'s day · {formatDate(d.today, { weekday: 'long', month: 'short', day: 'numeric' })}
-        </p>
-        <h1>How today is going</h1>
-        <p className="muted small">
-          It's {timeIn(now, pet.home_timezone)} where {pet.name} is and {timeIn(now, tz)} for you.
-        </p>
-        <Progress done={d.progress.done} total={d.progress.total} />
+        <div className="greet-row">
+          <div className="greet-text">
+            <p className="kicker">
+              {pet.name}'s day · {formatDate(d.today, { weekday: 'long', month: 'short', day: 'numeric' })}
+            </p>
+            <h1>How today is going</h1>
+            <p className="muted small">
+              It's {timeIn(now, pet.home_timezone)} where {pet.name} is and {timeIn(now, tz)} for you.
+            </p>
+          </div>
+          <ProgressRing done={d.progress.done} total={d.progress.total} />
+        </div>
         <ul className="today-dots">
           {d.tasks.map((t) => (
             <li key={t.id} className={`dot-${t.state}`} title={t.state}>
@@ -133,13 +145,10 @@ function OwnerHome({ d, pet, go, now, onOpenActivity }: { d: Dashboard; pet: Pet
 
       <CheckCard pet={pet} check={check} onCheck={setCheck} onOpenActivity={onOpenActivity} />
 
-      <Alerts alerts={d.alerts} tz={tz} />
-
-      <WatchList check={check} />
-
       <div className="tile-grid">
-        <section className="card tile">
-          <TileHead title="Latest check-in" action="History" onAction={() => go('schedule')} />
+        <section className={`card tile tint-${last ? TASK_LOOK[last.task_type].tone : 'yellow'}`}>
+          <TileHead title="Latest check-in" icon={last ? TASK_LOOK[last.task_type].icon : 'clipboard'}
+            tone={last ? TASK_LOOK[last.task_type].tone : 'yellow'} action="History" onAction={() => go('schedule')} />
           {last ? (
             <div className="latest-checkin">
               <p>
@@ -179,23 +188,18 @@ function OwnerHome({ d, pet, go, now, onOpenActivity }: { d: Dashboard; pet: Pet
 
 // ---------------------------------------------------------------------------
 
-function Progress({ done, total }: { done: number; total: number }) {
-  return (
-    <div className="progress" aria-label={`${done} of ${total} tasks done`}>
-      <div className="progress-bar">
-        <span style={{ width: total ? `${(done / total) * 100}%` : '0%' }} />
-      </div>
-      <span className="progress-count">
-        <b>{done}</b> of {total} done
-      </span>
-    </div>
-  )
-}
-
-function TileHead({ title, action, onAction, badge }: { title: string; action?: string; onAction?: () => void; badge?: number }) {
+function TileHead({ title, icon, tone, action, onAction, badge }: {
+  title: string
+  icon: IconName
+  tone: Tone
+  action?: string
+  onAction?: () => void
+  badge?: number
+}) {
   return (
     <div className="tile-head">
       <h2>
+        <IconCircle name={icon} tone={tone} size={38} />
         {title}
         {!!badge && <span className="count-badge">{badge}</span>}
       </h2>
@@ -208,41 +212,28 @@ function TileHead({ title, action, onAction, badge }: { title: string; action?: 
   )
 }
 
-const ALERT_ICON = { urgent: '⚠️', warning: '•', info: '🔔' }
-
-function alertWhen(a: Alert, tz: string): string {
-  if (!a.at) return ''
-  if (a.kind.startsWith('appointment')) return stamp(a.at, tz)
-  if (a.kind === 'health') return `logged ${timeIn(new Date(a.at), tz)}`
-  return `due ${timeIn(new Date(a.at), tz)}`
+/** Today's simple rule-based alerts, in the shared alert-card shape. */
+function todayAlerts(alerts: Alert[]): AlertItem[] {
+  return alerts.map((a) => ({ ...a, source: 'Today' }))
 }
 
-function Alerts({ alerts, tz }: { alerts: Alert[]; tz: string }) {
-  if (alerts.length === 0) {
-    return <p className="all-clear">✓ No alerts right now.</p>
-  }
-  return (
-    <section className="alerts" aria-label="Alerts">
-      {alerts.map((a, i) => (
-        <div key={i} className={`alert alert-${a.level}`}>
-          <span className="alert-icon" aria-hidden>
-            {ALERT_ICON[a.level]}
-          </span>
-          <p>
-            <span className="sr-only">{a.level}: </span>
-            {a.text}
-            {a.at && <span className="alert-time"> · {alertWhen(a, tz)}</span>}
-          </p>
-        </div>
-      ))}
-    </section>
-  )
+/** Alerts from the latest Watchdog check (older checks used title/noticed). */
+function watchAlerts(check: CheckRun | null | undefined): AlertItem[] {
+  return (check?.alerts ?? []).map((a) => ({
+    level: a.level,
+    topic: a.topic ?? 'other',
+    headline: a.headline ?? a.title ?? '',
+    action: a.action,
+    details: a.details ?? a.noticed ?? '',
+    references: a.references,
+    source: 'Watchdog',
+  }))
 }
 
 function NextAppointment({ d, pet, role, go }: { d: Dashboard; pet: Pet; role: Role; go: (t: Tab) => void }) {
   return (
-    <section className="card tile lilac">
-      <TileHead title="Next appointment" action="All" onAction={() => go('appointments')} />
+    <section className="card tile tint-violet">
+      <TileHead title="Next appointment" icon="calendar" tone="violet" action="All" onAction={() => go('appointments')} />
       {d.next_appointment ? (
         <>
           <AppointmentSummary a={d.next_appointment} pet={pet} role={role} />
@@ -261,8 +252,8 @@ function NextAppointment({ d, pet, role, go }: { d: Dashboard; pet: Pet; role: R
 
 function LatestMessage({ msg, unread, tz, role, go }: { msg: Message | null; unread: number; tz: string; role: Role; go: (t: Tab) => void }) {
   return (
-    <section className="card tile">
-      <TileHead title="Latest message" action="Open chat" onAction={() => go('messages')} badge={unread} />
+    <section className="card tile tint-blue">
+      <TileHead title="Latest message" icon="chat" tone="blue" action="Open chat" onAction={() => go('messages')} badge={unread} />
       {msg ? (
         <button className="msg-preview" onClick={() => go('messages')}>
           <span className="muted small">
@@ -301,8 +292,8 @@ function HealthSnapshot({ d, go }: { d: Dashboard; go: (t: Tab) => void }) {
   add('Potty', h.potty, ['off'])
 
   return (
-    <section className="card tile lilac">
-      <TileHead title="Health snapshot" action="Health log" onAction={() => go('health')} />
+    <section className="card tile tint-mint">
+      <TileHead title="Health snapshot" icon="heartPulse" tone="mint" action="Health log" onAction={() => go('health')} />
       {rows.length === 0 ? (
         <p className="muted">Nothing logged in the last week.</p>
       ) : (

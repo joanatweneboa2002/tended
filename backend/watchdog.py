@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from backend import reference
 from backend.activity import log_event
 from backend.budget import RunBudget
-from backend.common import day_clock, home_now, person_name, utc_iso, utc_now_iso
+from backend.common import ACTION_WORDS, HEADLINE_WORDS, day_clock, home_now, limit_words, person_name, utc_iso, utc_now_iso
 from backend.config import REPO_DIR
 from backend.db import connect, task_runs_on
 from backend.helper_agent import EMERGENCY_WORDS
@@ -52,12 +52,16 @@ Kind = Literal["missed_task", "missed_meds", "late_meds", "trend", "red_flag",
                "appointment_prep", "message_to_log", "other"]
 
 
+Topic = Literal["eating", "meds", "weight", "drinking", "appointment", "other"]
+
+
 class WatchAlert(BaseModel):
     level: Literal["urgent", "watch", "fyi"]
     kind: Kind
-    title: str
-    noticed: str
+    topic: Topic
+    headline: str
     action: str
+    details: str
     evidence: list[str]
     finding_ids: list[str]
     reference_ids: list[str]
@@ -146,10 +150,14 @@ def code_findings(pet, r: dict) -> list[dict]:
         by_slot.setdefault((c["task_id"], c["slot_date"]), []).append(c)
     ref_rows = reference.rows_for(pet["species"])
 
-    def add(kind, level, title, detail, action, evidence, refs=()):
-        findings.append({"id": f"F{len(findings) + 1}", "kind": kind, "min_level": level, "title": title,
-                         "detail": detail, "action": action, "evidence": list(evidence),
+    def add(kind, level, topic, title, detail, action, evidence, refs=()):
+        findings.append({"id": f"F{len(findings) + 1}", "kind": kind, "min_level": level, "topic": topic,
+                         "title": limit_words(title, HEADLINE_WORDS)[0].rstrip("."), "detail": detail,
+                         "action": limit_words(action, ACTION_WORDS)[0], "evidence": list(evidence),
                          "reference_ids": list(refs)})
+
+    def task_topic(task_type):
+        return {"feed": "eating", "meds": "meds"}.get(task_type, "other")
 
     # --- missed tasks and late meds -------------------------------------------
     now, today = r["now"], r["today"]
@@ -176,7 +184,7 @@ def code_findings(pet, r: dict) -> list[dict]:
             is_meds = t["type"] == "meds"
             today_missed = today in missed
             level = "urgent" if (is_meds and today_missed) else "watch" if (is_meds or len(missed) > 1) else "fyi"
-            add("missed_meds" if is_meds else "missed_task", level,
+            add("missed_meds" if is_meds else "missed_task", level, task_topic(t["type"]),
                 f"{t['title']} not checked in", f"No check-in for “{t['title']}” ({t['time']}"
                 + (f", dose {t['dose']}" if t["dose"] else "") + f") on {days_txt}.",
                 "Ask the caretaker whether it was given, and not to double up." if is_meds
@@ -185,7 +193,7 @@ def code_findings(pet, r: dict) -> list[dict]:
     for c in r["checkins"]:
         if c["status"] == "could_not":
             add("missed_meds" if c["task_type"] == "meds" else "missed_task",
-                "watch" if c["task_type"] == "meds" else "fyi",
+                "watch" if c["task_type"] == "meds" else "fyi", task_topic(c["task_type"]),
                 f"Couldn't do {c['title']}", f"On {_fmt_day(date.fromisoformat(c['slot_date']))}: “{c['reason']}”.",
                 "Check it's back on track.", [f"C{c['id']}"])
         elif c["task_type"] == "meds":
@@ -193,7 +201,7 @@ def code_findings(pet, r: dict) -> list[dict]:
                                     datetime.strptime(c["slot_time"], "%H:%M").time(), r["tz"])
             late = (_utc(c["created_at"]) - slot).total_seconds() / 60
             if late > LATE_MEDS_MINUTES:
-                add("late_meds", "watch", f"{c['title']} given late",
+                add("late_meds", "watch", "meds", f"{c['title']} given late",
                     f"Marked given {late / 60:.1f} hours after {c['slot_time']} on "
                     f"{_fmt_day(date.fromisoformat(c['slot_date']))}.",
                     "Ask the caretaker to give it closer to the set time.", [f"C{c['id']}"])
@@ -241,20 +249,28 @@ def code_findings(pet, r: dict) -> list[dict]:
         if "not eating" in signals:
             refs = [row["id"] for row in ref_rows if row["category"] == "red_flag" and "eat" in row["topic"].lower()]
         level = "urgent" if (len(signals) >= 2 or "not eating" in signals) else "watch"
-        add("trend", level, "Health trend this week", "; ".join(notes) + ".",
-            "Tell the vet about these changes together." if level == "urgent" else "Keep an eye on it and check in with the caretaker.",
-            evidence, refs)
+        if any(s in signals for s in ("appetite dropping", "not eating")):
+            topic, headline = "eating", f"{pet['name']}'s eating less this week"
+        elif "weight loss" in signals:
+            topic, headline = "weight", f"{pet['name']}'s weight is going down"
+        elif "drinking more" in signals:
+            topic, headline = "drinking", f"{pet['name']}'s drinking more than usual"
+        else:
+            topic, headline = "other", f"{pet['name']}'s energy is lower than usual"
+        add("trend", level, topic, headline, "; ".join(notes) + ".",
+            "Call the vet today and mention these changes together." if level == "urgent"
+            else "Keep an eye on it and check in with the caretaker.", evidence, refs)
 
     # --- red-flag words in typed text ------------------------------------------
     for kind, rid, text in _typed_texts(r):
         for pattern, label in EMERGENCY_WORDS:
             m = re.search(pattern, text, re.IGNORECASE)
             if m:
-                add("red_flag", "urgent", f"Mentions {label}", f"{rid} mentions “{m.group(0)}”.",
+                add("red_flag", "urgent", "other", f"Mentions {label}", f"{rid} mentions “{m.group(0)}”.",
                     "Call the caretaker now, and the vet if it's happening.", [rid])
                 break
         for row in reference.toxin_matches(pet["species"], text):
-            add("red_flag", "urgent", f"May have eaten: {row['topic']}", f"{rid}: “{text[:120]}”.",
+            add("red_flag", "urgent", "other", f"May have eaten {row['topic'].lower()}", f"{rid}: “{text[:120]}”.",
                 "Call the vet now.", [rid], [row["id"]])
 
     # --- appointments coming up ------------------------------------------------
@@ -263,7 +279,7 @@ def code_findings(pet, r: dict) -> list[dict]:
         if today <= d <= today + timedelta(days=7):
             soon = d <= today + timedelta(days=1)
             who = "the caretaker" if a["taken_by"] == "caretaker" else "you"
-            add("appointment_prep", "watch" if soon else "fyi", f"{a['title']} on {_fmt_day(d)}",
+            add("appointment_prep", "watch" if soon else "fyi", "appointment", f"{a['title']} on {_fmt_day(d)}",
                 f"{a['title']} at {a['time']} on {_fmt_day(d)}" + (f", {a['place_name']}" if a["place_name"] else "")
                 + f". {who.capitalize()} is taking {pet['name']}." + (f" Bring: {a['bring']}." if a["bring"] else ""),
                 "Make sure the caretaker knows the plan." if who != "you" else "Plan the visit.", [f"A{a['id']}"])
@@ -380,24 +396,31 @@ def run(pet, budget: RunBudget, run_id: int) -> dict:
                 level = by_finding[fid]["min_level"]
                 raised += 1
         covered.update(fids)
-        noticed, cut1 = drop_reassuring_sentences(a.noticed)
+        details, cut1 = drop_reassuring_sentences(a.details)
         action, cut2 = drop_reassuring_sentences(a.action)
+        headline, long_head = limit_words(a.headline, HEADLINE_WORDS)
+        if long_head and fids:
+            headline = by_finding[fids[0]]["title"]  # use the code finding's short headline instead
+        action, long_action = limit_words(action or "Check in with the caretaker.", ACTION_WORDS)
         refs = [reference.BY_ID[x] for x in a.reference_ids if x in reference.BY_ID
                 and reference.BY_ID[x]["species"] == ref_species]
         alerts.append({
-            "level": level, "kind": a.kind, "title": a.title.strip(), "noticed": noticed or a.title,
-            "action": action or "Check in with the caretaker.",
+            "level": level, "kind": a.kind, "topic": a.topic, "headline": headline.rstrip("."),
+            "action": action, "details": details or a.headline,
             "evidence": [e for e in a.evidence if e in known],
             "references": [{"id": x["id"], "topic": x["topic"], "source": x["source"]} for x in refs],
             "from": "agent",
         })
         if cut1 or cut2:
-            log_event(pid, AGENT, "guardrail", f"Removed a reassuring sentence from “{a.title}”.", run_id)
+            log_event(pid, AGENT, "guardrail", f"Removed a reassuring sentence from “{headline}”.", run_id)
+        if long_head or long_action:
+            log_event(pid, AGENT, "guardrail",
+                      f"Shortened “{headline}” to fit the {HEADLINE_WORDS}-word headline / {ACTION_WORDS}-word action limits.", run_id)
     for f in findings:
         if f["id"] not in covered:
             refs = [reference.BY_ID[x] for x in f["reference_ids"]]
-            alerts.append({"level": f["min_level"], "kind": f["kind"], "title": f["title"], "noticed": f["detail"],
-                           "action": f["action"], "evidence": f["evidence"],
+            alerts.append({"level": f["min_level"], "kind": f["kind"], "topic": f["topic"], "headline": f["title"],
+                           "action": f["action"], "details": f["detail"], "evidence": f["evidence"],
                            "references": [{"id": x["id"], "topic": x["topic"], "source": x["source"]} for x in refs],
                            "from": "code"})
             log_event(pid, AGENT, "guardrail",

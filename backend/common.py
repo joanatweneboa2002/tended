@@ -49,6 +49,23 @@ def day_clock(dt: datetime) -> str:
     return f"{dt.strftime('%a %b %d')} {clock(dt)}"
 
 
+HEADLINE_WORDS = 8
+ACTION_WORDS = 15
+_DANGLING = {"and", "or", "but", "the", "a", "an", "to", "of", "for", "with", "if", "so", "because", "about", "as", "at", "on", "in"}
+
+
+def limit_words(text: str, n: int) -> tuple[str, bool]:
+    """Keep at most n words (cut at a clean point). Returns (text, was_cut)."""
+    words = text.strip().split()
+    if len(words) <= n:
+        return text.strip(), False
+    words = words[:n]
+    while len(words) > 1 and words[-1].strip(",;:—-").lower() in _DANGLING:
+        words.pop()
+    out = " ".join(words).rstrip(",;:—- ")
+    return (out if out.endswith((".", "!", "?")) else out + "."), True
+
+
 def home_tz(pet: sqlite3.Row | dict) -> ZoneInfo:
     return ZoneInfo(pet["home_timezone"])
 

@@ -244,3 +244,44 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 > commit and push to GitHub when it works
 >
 > add this prompt to my prompt log.
+
+
+---
+
+## Prompt 12: Vibrant, friendly restyle
+
+> I want the interface to feel more vibrant, friendly and pet like. keep the layout and every feature, just restyle.
+>
+> emergency button: remove the big floating red button. put a small round red icon button (a heart with a pulse line, labeled “SOS”) in the top header next to the pet switcher, on every screen. it still opens the emergency card in one tap.
+> bolder colors:
+> header: a vibrant gradient from electric blue (
+> #4F7BFF) to violet (
+> #8B5CF6) with white text, with a soft wave or blob shape
+> background: soft off white (
+> #F6F7FB)
+> each section gets its own bright accent: coral (
+> #FF7A59) for “Log this?” suggestions, sunny yellow (
+> #FFC93C) for feeding, mint (
+> #22C7A9) for walks and health, violet (
+> #8B5CF6) for appointments, blue (
+> #4F7BFF) for Ask Tended
+> cards use light tints of those colors, with a solid colored icon circle on each card
+> more personality:
+> replace the progress bar with a colorful progress ring showing x of y tasks done
+> bigger pet avatar with a colored ring around it
+> Ask Tended as a bold gradient button that stands out
+> a little bounce when a task gets checked off
+> keep the dark floating tab bar, but highlight the active tab with the gradient
+> alerts: the urgent alerts are too big, too red and too wordy.
+> no solid red blocks. each alert is a white card with a soft tint and a colored stripe on the left: coral (
+> #FF6B5B) for urgent, amber (
+> #FFB020) for watch, blue (
+> #4F7BFF) for fyi
+> a cute round icon for the alert type: food bowl for eating, pill for meds, scale for weight, water drop for drinking, calendar for appointments, paw for anything else
+> a headline of 8 words max and one action line of 15 words max, like “Miso’s eating less this week” / “Call the vet today and mention the weight drop”. full details hide behind a “see why” link
+> more than one alert shows as a neat stack with a header like “2 things need attention”
+> update the watchdog agent to return headline, action and details as separate fields
+> the Ask Tended urgent screen gets the same friendly style: a card with an icon, the vet’s number as a big tappable button and calm wording, not a full red screen
+> make sure text is easy to read on every color, it looks good on a laptop and a phone sized window, and the safety tests still pass. then commit and push to GitHub.
+>
+> add this prompt to my prompt log.

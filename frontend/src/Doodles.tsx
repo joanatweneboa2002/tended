@@ -40,3 +40,15 @@ export function GreetBlob() {
     </svg>
   )
 }
+
+/** Soft wave + blobs layered over the header gradient. */
+export function HeaderBlobs() {
+  return (
+    <svg className="header-blobs" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden>
+      <path fill="#1b1460" opacity=".16" d="M0 210c140-40 260 20 400-10s230-110 380-90 250 90 420 50v140H0Z" />
+      <path fill="#1b1460" opacity=".14" d="M0 250c180-30 300 30 470 5s260-80 420-60 220 70 310 50v55H0Z" />
+      <circle cx="1080" cy="40" r="120" fill="#ffffff" opacity=".07" />
+      <circle cx="140" cy="-30" r="110" fill="#ffffff" opacity=".06" />
+    </svg>
+  )
+}

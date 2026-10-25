@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, formatTime, type EmergencyCard as Card } from './api'
+import { createPortal } from 'react-dom'
+import { Icon } from './Icons'
 import { PetAvatar } from './PetAvatar'
 
 function Phone({ number }: { number: string }) {
@@ -16,19 +18,25 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+/** Small round red SOS button for the header. One tap opens the emergency card. */
 export function EmergencyButton({ petId }: { petId: number | null }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button
-        className="emergency-fab"
+        className="sos-btn"
         onClick={() => setOpen(true)}
         disabled={petId === null}
         aria-haspopup="dialog"
+        aria-label="SOS: open the emergency card"
+        title="Emergency card"
       >
-        <span className="fab-cross" aria-hidden>✚</span> Emergency card
+        <span className="sos-circle" aria-hidden>
+          <Icon name="heartPulse" size={22} />
+        </span>
+        <span className="sos-label">SOS</span>
       </button>
-      {open && petId !== null && <EmergencyModal petId={petId} onClose={() => setOpen(false)} />}
+      {open && petId !== null && createPortal(<EmergencyModal petId={petId} onClose={() => setOpen(false)} />, document.body)}
     </>
   )
 }

@@ -12,7 +12,17 @@ from typing import Literal
 from fastapi import APIRouter
 
 from backend.appointments import pet_appointments
-from backend.common import day_tasks, get_pet_row, home_now, home_to_utc, pet_out, utc_iso
+from backend.common import (
+    ACTION_WORDS,
+    HEADLINE_WORDS,
+    day_tasks,
+    get_pet_row,
+    home_now,
+    home_to_utc,
+    limit_words,
+    pet_out,
+    utc_iso,
+)
 from backend.db import connect
 from backend.health import recent_logs
 from backend.messages import latest_message, unread_count
@@ -24,9 +34,17 @@ GRACE_MINUTES = {"meds": 30}
 DEFAULT_GRACE_MINUTES = 60
 
 
-def alert(level: str, kind: str, text: str, at: str | None = None) -> dict:
-    """level: 'urgent' | 'warning' | 'info'. `at` is a UTC time the UI shows in local time."""
-    return {"level": level, "kind": kind, "text": text, "at": at}
+def alert(level: str, kind: str, topic: str, headline: str, action: str, details: str = "",
+          at: str | None = None) -> dict:
+    """level: 'urgent' | 'watch' | 'fyi' (same as the Watchdog). topic picks the icon:
+    eating | meds | weight | drinking | appointment | other. Headline <= 8 words and
+    action <= 15 words. `at` is a UTC time the UI shows in local time."""
+    return {"level": level, "kind": kind, "topic": topic,
+            "headline": limit_words(headline, HEADLINE_WORDS)[0].rstrip("."),
+            "action": limit_words(action, ACTION_WORDS)[0], "details": details, "at": at}
+
+
+TASK_TOPIC = {"feed": "eating", "meds": "meds"}
 
 
 @router.get("/pets/{pet_id}/dashboard")
@@ -70,50 +88,55 @@ def dashboard(pet_id: int, role: Literal["owner", "caretaker"]) -> dict:
     for t in tasks:
         grace = timedelta(minutes=GRACE_MINUTES.get(t["type"], DEFAULT_GRACE_MINUTES))
         due = home_to_utc(pet, today, t["time"])
+        topic = TASK_TOPIC.get(t["type"], "other")
         if t["state"] == "pending" and now >= due + grace:
             if t["type"] == "meds":
-                alerts.append(alert("urgent", "overdue_meds",
-                                    f"{t['title']} isn't marked given yet. Dose: {t['dose']}.",
-                                    t["due_at"]))
+                alerts.append(alert("urgent", "overdue_meds", topic, f"{t['title']} not given yet",
+                                    "Give it now, unless someone already did.",
+                                    f"Dose: {t['dose']}. It isn't marked given on the schedule.", t["due_at"]))
             else:
-                alerts.append(alert("warning", "overdue", f"{t['title']} isn't checked off yet.",
-                                    t["due_at"]))
+                alerts.append(alert("watch", "overdue", topic, f"{t['title']} not checked off",
+                                    "Check it off once it's done.", "", t["due_at"]))
         elif t["state"] == "could_not":
             reason = next((c["reason"] for c in t["checkins"] if c["reason"]), "")
-            alerts.append(alert("warning", "could_not",
-                                f"Couldn't do {t['title']}: {reason}", t["due_at"]))
+            alerts.append(alert("watch", "could_not", topic, f"Couldn't do {t['title']}",
+                                "Make sure it's back on track.", f"Reason: {reason}", t["due_at"]))
 
     # Today's health entries
     todays_logs = [lg for lg in logs if lg["log_date"] == today.isoformat()]
     for lg in todays_logs:
         if lg["appetite"] == "none":
-            alerts.append(alert("urgent", "health", "Not eating today.", lg["logged_at"]))
+            alerts.append(alert("urgent", "health", "eating", "Not eating today",
+                                "Call the vet if the next meal is skipped too.",
+                                f"Logged by {lg['logged_by'] or 'the caretaker'}.", lg["logged_at"]))
         if lg["energy"] == "low":
-            alerts.append(alert("warning", "health", "Low energy today.", lg["logged_at"]))
+            alerts.append(alert("watch", "health", "other", "Low energy today",
+                                "Keep an eye on it and note any changes.", "", lg["logged_at"]))
         if lg["potty"] == "off":
-            alerts.append(alert("warning", "health", "Potty was off today.", lg["logged_at"]))
+            alerts.append(alert("watch", "health", "other", "Potty was off today",
+                                "Watch the next one; call the vet if it continues.", "", lg["logged_at"]))
         if lg["symptoms"]:
-            alerts.append(alert("warning", "health", f"Symptoms noted: {lg['symptoms']}",
-                                lg["logged_at"]))
+            alerts.append(alert("watch", "health", "other", "Symptoms noted today",
+                                "Read the note and decide if the vet should know.",
+                                f"“{lg['symptoms']}”", lg["logged_at"]))
 
     # Appointment reminders: today and the day before
     tomorrow = (today + timedelta(days=1)).isoformat()
     for a in appointments:
-        who = "you're" if a["taken_by"] == role else (
-            "the caretaker is" if a["taken_by"] == "caretaker" else "the owner is"
+        who = "You're" if a["taken_by"] == role else (
+            "The caretaker is" if a["taken_by"] == "caretaker" else "The owner is"
         )
-        place = f" at {a['place_name']}" if a["place_name"] else ""
-        bring = f" Bring: {a['bring']}." if a["bring"] else ""
+        details = ", ".join(x for x in (a["place_name"], a["address"]) if x)
+        if a["bring"]:
+            details += (". " if details else "") + f"Bring: {a['bring']}."
         if a["date"] == tomorrow:
-            alerts.append(alert("info", "appointment_tomorrow",
-                                f"Tomorrow: {a['title']}{place}, {who} taking {pet['name']}.{bring}",
-                                a["starts_at"]))
+            alerts.append(alert("fyi", "appointment_tomorrow", "appointment", f"{a['title']} tomorrow",
+                                f"{who} taking {pet['name']}.", details, a["starts_at"]))
         elif a["date"] == today.isoformat() and not a["is_past"]:
-            alerts.append(alert("info", "appointment_today",
-                                f"Today: {a['title']}{place}, {who} taking {pet['name']}.{bring}",
-                                a["starts_at"]))
+            alerts.append(alert("fyi", "appointment_today", "appointment", f"{a['title']} today",
+                                f"{who} taking {pet['name']}.", details, a["starts_at"]))
 
-    order = {"urgent": 0, "warning": 1, "info": 2}
+    order = {"urgent": 0, "watch": 1, "fyi": 2}
     alerts.sort(key=lambda a: order[a["level"]])
 
     next_appt = next((a for a in appointments if not a["is_past"]), None)
