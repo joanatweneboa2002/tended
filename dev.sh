@@ -46,7 +46,7 @@ start() {
     echo "frontend: starting on http://localhost:5173 (log: logs/frontend.log)"
   fi
   for _ in $(seq 1 40); do
-    curl -sf localhost:5173/api/status > /dev/null 2>&1 && { echo "ready: open http://localhost:5173"; return; }
+    curl -sf --max-time 2 localhost:5173/api/status > /dev/null 2>&1 && { echo "ready: open http://localhost:5173"; return; }
     sleep 0.5
   done
   echo "not ready after 20s; check logs/backend.log and logs/frontend.log"
