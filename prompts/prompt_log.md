@@ -484,3 +484,15 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 ## Prompt 22: Commit and push
 
 > commit and push everything to GitHub. then tell me the latest commit message so I know it’s up to date. add this prompt to my prompt log.
+
+---
+
+## Prompt 23: Stop the app
+
+> ok great. stop my running Tended app completely, both the backend on port 8000 and the frontend on port 5173, including anything started with dev.sh. then check that nothing is using ports 8000 and 5173 anymore and tell me when it’s clear. don’t change any code. add this prompt to my prompt log.
+
+---
+
+## Prompt 24: Forget a remembered user or pet that no longer exists
+
+> if the browser remembers a user or pet that doesn’t exist in the database anymore, forget it quietly and show the welcome screen, instead of calling the backend for a missing pet. commit and push. add this prompt to my prompt log.

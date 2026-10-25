@@ -14,6 +14,7 @@ import { Schedule } from './Schedule'
 import { Welcome } from './Welcome'
 
 const UNREAD_POLL_MS = 5000
+const OLD_KEYS = ['tended.view', 'tended.petId'] // from before accounts
 
 const TABS: { id: Exclude<Tab, 'profile'>; label: string }[] = [
   { id: 'home', label: 'Home' },
@@ -37,14 +38,25 @@ export default function App() {
   const [user, setUser] = useState<User | null | undefined>(signedInAs() ? undefined : null)
 
   useEffect(() => {
+    OLD_KEYS.forEach((k) => localStorage.removeItem(k))
     if (!signedInAs()) return
-    api.me().then(setUser, () => {
-      signOut()
-      setUser(null)
-    })
+    // Look them up in the public list of people (no error if they're gone). Someone
+    // deleted is forgotten quietly; if the backend is just down, they're kept, so a
+    // refresh works once it's back (the welcome screen says what's wrong).
+    api.users().then(
+      (people) => {
+        const me = people.find((u) => u.id === signedInAs())
+        if (!me) forget(signedInAs())
+        setUser(me ?? null)
+      },
+      () => setUser(null),
+    )
   }, [])
   useEffect(() => {
-    const out = () => setUser(null) // the backend no longer knows this person
+    const out = () => {
+      forget(signedInAs()) // the backend no longer knows this person
+      setUser(null)
+    }
     window.addEventListener(SIGNED_OUT, out)
     return () => window.removeEventListener(SIGNED_OUT, out)
   }, [])
@@ -72,9 +84,17 @@ export default function App() {
   )
 }
 
+/** Forget a remembered person, and the pet remembered for them. */
+function forget(id: string | null) {
+  if (id) localStorage.removeItem(petKeyFor(id))
+  signOut()
+}
+
+const petKeyFor = (userId: string) => `tended.petId.${userId}`
+
 function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
   const role = user.role
-  const petKey = `tended.petId.${user.id}`
+  const petKey = petKeyFor(user.id)
   const [pets, setPets] = useState<Pet[] | null>(null)
   const [petId, setPetId] = useState<number | null>(() => Number(localStorage.getItem(petKey)) || null)
   const [tab, setTab] = useState<Tab>('home')
@@ -90,12 +110,14 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
       setError(null)
       setPetId((cur) => {
         const want = selectId ?? cur
-        return list.some((p) => p.id === want) ? want! : (list[0]?.id ?? null)
+        if (list.some((p) => p.id === want)) return want!
+        localStorage.removeItem(petKey) // a remembered pet that's gone (or isn't theirs): forget it
+        return list[0]?.id ?? null
       })
     } catch (e) {
       setError(`Can't reach the backend: ${(e as Error).message}. Is it running on port 8000?`)
     }
-  }, [])
+  }, [petKey])
 
   useEffect(() => {
     loadPets()
@@ -104,12 +126,16 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
     if (petId !== null) localStorage.setItem(petKey, String(petId))
   }, [petId, petKey])
 
+  // Only a pet that's in this person's list is ever asked about.
+  const pet = pets?.find((p) => p.id === petId) ?? null
+  const shownId = pet?.id ?? null
+
   // Unread badge: not live, just checked every few seconds.
   useEffect(() => {
-    if (petId === null) return
+    if (shownId === null) return
     let cancelled = false
     const check = () =>
-      api.unread(petId, role).then(
+      api.unread(shownId, role).then(
         (r) => !cancelled && setUnread(r.unread),
         () => {},
       )
@@ -119,10 +145,8 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
       cancelled = true
       clearInterval(id)
     }
-  }, [petId, role])
+  }, [shownId, role])
   const clearUnread = useCallback(() => setUnread(0), [])
-
-  const pet = pets?.find((p) => p.id === petId) ?? null
 
   const go = (t: Tab) => {
     setAdding(false)
@@ -154,7 +178,7 @@ function SignedIn({ user, onSwitch }: { user: User; onSwitch: () => void }) {
           </div>
           <div className="topbar-right">
             {role === 'owner' && pet && <AgentActivity pet={pet} open={activityOpen} onOpenChange={setActivityOpen} />}
-            <EmergencyButton petId={petId} />
+            <EmergencyButton petId={shownId} />
             <ProfileMenu user={user} onAddPet={role === 'owner' ? () => setAdding(true) : undefined} onSwitch={onSwitch} onDeleted={onSwitch} />
           </div>
         </div>
