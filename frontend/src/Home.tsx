@@ -471,7 +471,7 @@ function NextAppointment({ d, pet, role, go }: { d: Dashboard; pet: Pet; role: R
         </button>
       ) : (
         <div className="photo-empty-state">
-          <img src="/pets/puppy.jpg" alt="" />
+          <img src={pet.photo_url || '/pets/puppy.jpg'} alt="" />
           <p className="muted">Nothing booked. Add vet or groomer visits in Appointments.</p>
         </div>
       )}
