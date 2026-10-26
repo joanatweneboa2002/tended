@@ -66,14 +66,6 @@ function Start({ go }: { go: (s: Screen) => void }) {
           <img key={src} src={src} alt="" className={`collage-${i}`} />
         ))}
       </div>
-      <div className="start-actions">
-        <button className="btn primary big start-btn" onClick={() => go('owner')}>
-          I own a pet
-        </button>
-        <button className="btn sky big start-btn" onClick={() => go('caretaker')}>
-          I’m looking after a pet
-        </button>
-      </div>
       <div className="start-links">
         <button className="link-btn" onClick={() => go('pick')}>
           Already on Tended? Pick your profile
@@ -82,7 +74,6 @@ function Start({ go }: { go: (s: Screen) => void }) {
           Just looking? Try the demo
         </button>
       </div>
-      <p className="demo-note">No passwords: this is a demo for testing.</p>
     </div>
   )
 }

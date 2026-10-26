@@ -52,6 +52,17 @@ Kind = Literal["missed_task", "missed_meds", "late_meds", "trend", "red_flag",
                "appointment_prep", "message_to_log", "other"]
 
 
+# Species-specific health measures (see health.py): (field, worrying value, label, headline end)
+SPECIES_FIELDS = ("droppings", "feathers", "swimming", "water_clarity", "shedding", "basking")
+SPECIES_CONCERNS = [
+    ("droppings", "off", "droppings", "droppings look off"),
+    ("feathers", "plucking", "feathers", "plucking feathers"),
+    ("swimming", "odd", "swimming", "swimming looks odd"),
+    ("water_clarity", "cloudy", "tank water", "tank water is cloudy"),
+    ("shedding", "stuck", "shedding", "shed is stuck"),
+    ("basking", "less", "basking", "basking less than usual"),
+]
+
 Topic = Literal["eating", "meds", "weight", "drinking", "appointment", "other"]
 
 
@@ -243,6 +254,14 @@ def code_findings(pet, r: dict) -> list[dict]:
     if len(more_water) >= 2:
         signals.append("drinking more")
         notes.append(f"Drinking more than usual on {len(more_water)} days")
+    # species-specific measures (birds, fish, reptiles): a worrying value on 2+ days
+    extra_seen = []
+    for field, bad, label, says in SPECIES_CONCERNS:
+        days_bad = sorted({h["log_date"] for h in r["health"] if h.get(field) == bad})
+        if len(days_bad) >= 2:
+            signals.append(f"{label} {bad}")
+            extra_seen.append(says)
+            notes.append(f"{label.capitalize()} “{bad}” on {len(days_bad)} days")
     if signals:
         evidence = [f"H{h['id']}" for h in r["health"]]
         refs = []
@@ -255,6 +274,8 @@ def code_findings(pet, r: dict) -> list[dict]:
             topic, headline = "weight", f"{pet['name']}'s weight is going down"
         elif "drinking more" in signals:
             topic, headline = "drinking", f"{pet['name']}'s drinking more than usual"
+        elif extra_seen and not any(s.startswith("energy") for s in signals):
+            topic, headline = "other", f"{pet['name']}'s {extra_seen[0]}"
         else:
             topic, headline = "other", f"{pet['name']}'s energy is lower than usual"
         add("trend", level, topic, headline, "; ".join(notes) + ".",
@@ -331,7 +352,7 @@ def build_input(pet, r: dict, findings: list[dict], flagged: dict[str, list[str]
             for c in r["checkins"]) or "(none)"),
         "## Health log\n" + ("\n".join(
             f"[H{h['id']}] {h['log_date']}: " + ", ".join(
-                f"{k} {h[k]}" for k in ("appetite", "energy", "water", "potty") if h[k])
+                f"{k} {h[k]}" for k in ("appetite", "energy", "water", "potty", *SPECIES_FIELDS) if h.get(k))
             + (f", weight {h['weight']:g} {h['weight_unit']}" if h["weight"] is not None else "")
             + (f", symptoms «{h['symptoms']}»" if h["symptoms"] else "") + mark(f"H{h['id']}")
             for h in r["health"]) or "(none)"),

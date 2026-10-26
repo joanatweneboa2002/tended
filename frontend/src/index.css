@@ -15,6 +15,16 @@
  * links stay ink with a sky underline.
  */
 
+/* Country flags everywhere: Windows browsers don't draw flag emoji (they show
+   "US" instead of 🇺🇸), so a small flag-only font (Twemoji, CC BY 4.0) covers
+   just the flag characters; all other text keeps the normal fonts. */
+@font-face {
+  font-family: 'Twemoji Country Flags';
+  src: url('/fonts/TwemojiCountryFlags.woff2') format('woff2');
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  font-display: swap;
+}
+
 :root {
   --page: #f5f7fb;
   --card: #ffffff;
@@ -55,7 +65,7 @@
   --shadow-sm: 0 2px 8px rgba(17, 19, 24, 0.06);
   --shadow-lift: 0 18px 48px rgba(17, 19, 24, 0.16);
   --nav-h: 64px;
-  --font: 'Plus Jakarta Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font: 'Twemoji Country Flags', 'Plus Jakarta Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 30' preserveAspectRatio='none'%3E%3Cpath fill='%23F5F7FB' d='M0 30V17C38 5 84 3 128 12s86 18 136 11 92-20 136-12V30Z'/%3E%3C/svg%3E");
 
   color: var(--ink);
@@ -330,7 +340,9 @@ main { display: flex; flex-direction: column; gap: 16px; }
   display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text media' 'pill pill'; column-gap: 12px;
 }
 .hero-text { grid-area: text; align-self: center; position: relative; z-index: 1; min-width: 0; }
-.hero h1 { font-size: 34px; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.hero h1 { font-size: 34px; letter-spacing: -0.03em; }
+/* pet names never break mid-word: long names get a smaller size instead (see nameFit) */
+.pet-name { overflow-wrap: normal; word-break: normal; hyphens: none; white-space: normal; }
 .hero h1 .badge { margin-left: 4px; vertical-align: 8px; }
 .badge.real { background: var(--mint); color: var(--ink); }
 .person-id .badge { vertical-align: 2px; }
@@ -1017,3 +1029,11 @@ main { display: flex; flex-direction: column; gap: 16px; }
 }
 .profile-menu > .badge { align-self: flex-start; margin: 0; }
 .profile-menu .btn.danger-link { margin: 0; white-space: nowrap; font-size: 14px; }
+
+/* health tab hint, caretaker card */
+.health-hint { margin: 0; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--mint-pale); font-weight: 600; }
+.caretaker-card { display: flex; flex-direction: column; gap: 12px; }
+.caretaker-card h2 { margin: 0; }
+.carer-who { margin: 0; }
+.carer-who span { color: var(--gray); font-weight: 600; }
+.carer-new { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border-top: 1px solid var(--line); }

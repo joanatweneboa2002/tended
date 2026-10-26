@@ -544,3 +544,37 @@ Every prompt I send to Claude Code for this project, word for word, in order.
 ## Prompt 27: Confirm gpt-5.6-luna prices
 
 > the gpt-5.6-luna prices in config are confirmed: input $0.20, cached input $0.02, output $1.20 per 1M tokens (checked on pricepertoken.com and developer.puter.com, Oct 2026). set PRICES_CONFIRMED = True, add those two sources as a comment, re-run the cost report, then commit and push. add this prompt to my prompt log.
+
+---
+
+## Prompt 28: Who pays for the key
+
+> the key i am using was given b my professor so i am not paying for it out of pocket
+
+---
+
+## Prompt 29: Mention the professor's key
+
+> yes, mention my professor
+
+---
+
+## Prompt 30: Simplify the landing screen
+
+> Actually, change og mind. on the first page, remove I won a pet, and i am looking for a pet. and remoove no passwords:
+
+---
+
+## Prompt 31: Last fixes from a real tester
+
+> last fixes from a real tester, then we’re done with the app:
+>
+> port in use: if port 8000 is taken, the backend should try 8001, 8002 and so on, print which port it picked, and the frontend should find it automatically. also add a short “troubleshooting” section to the README for Windows and Mac covering port in use errors
+> invite code always visible: in the owner’s pet profile, show a “Caretaker” card with the caretaker’s name, the invite code (if not used yet) with a copy button, and a “make a new code” button
+> cosmetic: pet names should never break mid word (shrink the font a bit instead), and show the owner’s location as “New Haven 🇺🇸” with the flag, not “New Haven us”
+> health tab:
+> add a short hint at the top: “Log how [pet] is doing today. Fill in what you noticed, skip the rest.”
+> only show fields that make sense for the species: dogs and cats get weight, appetite, water, energy and potty. birds get appetite, droppings, feathers and activity. fish get eating, swimming and water clarity. reptiles get eating, shedding and basking. any other species gets appetite, energy and notes. every field is optional
+> the watchdog should still work with whatever fields exist
+>
+> run all safety tests, then commit and push. add this prompt to my prompt log.

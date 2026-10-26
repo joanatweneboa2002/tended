@@ -164,9 +164,18 @@ export interface HealthLog {
   energy: Energy | null
   potty: Potty | null
   symptoms: string
+  // species-specific (see healthFields.ts)
+  droppings: string | null
+  feathers: string | null
+  swimming: string | null
+  water_clarity: string | null
+  shedding: string | null
+  basking: string | null
 }
 
-export type HealthInput = Partial<Pick<HealthLog, 'weight' | 'appetite' | 'water' | 'energy' | 'potty'>> & {
+export type HealthInput = Partial<
+  Pick<HealthLog, 'weight' | 'appetite' | 'water' | 'energy' | 'potty' | 'droppings' | 'feathers' | 'swimming' | 'water_clarity' | 'shedding' | 'basking'>
+> & {
   symptoms?: string
 }
 
@@ -409,6 +418,7 @@ export interface Invite {
   code: string
   pet_name: string
   caretaker_name: string
+  caretaker_city?: string
   expires_at: string
 }
 
@@ -468,6 +478,7 @@ export const api = {
   deleteMe: () => request<void>('/api/me', { method: 'DELETE' }),
   createInvite: (petId: number, c: { name: string; city: string }) =>
     request<Invite>(`/api/pets/${petId}/invites`, json('POST', c)),
+  openInvite: (petId: number) => request<Invite | null>(`/api/pets/${petId}/invites/open`),
   checkInvite: (code: string) => request<InviteCheck>(`/api/invites/${encodeURIComponent(code.trim())}`),
   joinPet: (p: { code: string; name: string; city: string; photo: File | null }) => {
     const form = new FormData()

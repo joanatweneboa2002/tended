@@ -3,7 +3,7 @@ import { api, type EmergencyFields, type Invite, type Pet, type PetInput, type R
 import { InviteCard } from './Invite'
 import { RealBadge } from './People'
 import { PetAvatar } from './PetAvatar'
-import { Field } from './ui'
+import { Field, nameFit } from './ui'
 
 export function Profile({
   pet,
@@ -22,6 +22,7 @@ export function Profile({
   return (
     <div className="stack">
       <ProfileForm key={`p${pet.id}`} pet={pet} onSaved={onPetChanged} onDeleted={onPetDeleted} />
+      <CaretakerCard key={`c${pet.id}`} pet={pet} />
       <EmergencyForm key={`e${pet.id}`} pet={pet} />
       {pet.is_sample && (
         <section className="card sample-box">
@@ -52,7 +53,11 @@ function ProfileReadOnly({ pet }: { pet: Pet }) {
       <div className="hero-pet">
         <PetAvatar pet={pet} size={96} />
         <div>
-          <h1>{pet.name}</h1>
+          <h1>
+            <span className="pet-name" style={nameFit(pet.name)}>
+              {pet.name}
+            </span>
+          </h1>
           <RealBadge sample={pet.is_sample} />
         </div>
       </div>
@@ -306,6 +311,92 @@ export function ProfileForm({
         )}
       </div>
     </form>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Owner: who looks after the pet, and the invite code (always visible)
+// ---------------------------------------------------------------------------
+
+function CaretakerCard({ pet }: { pet: Pet }) {
+  const [invite, setInvite] = useState<Invite | null | undefined>(undefined)
+  const [name, setName] = useState('')
+  const [city, setCity] = useState(pet.home_city)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.openInvite(pet.id).then(
+      (inv) => {
+        setInvite(inv)
+        setName(inv?.caretaker_name || pet.caretaker_name || '')
+        if (inv?.caretaker_city) setCity(inv.caretaker_city)
+      },
+      () => setInvite(null),
+    )
+  }, [pet.id, pet.caretaker_name])
+
+  const makeCode = async (e: FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      setInvite(await api.createInvite(pet.id, { name, city }))
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card caretaker-card">
+      <h2>Caretaker</h2>
+      {pet.caretaker_name ? (
+        <p className="carer-who">
+          <b>{pet.caretaker_name}</b>
+          {pet.caretaker_city && (
+            <span>
+              {' '}
+              · {pet.caretaker_city} {pet.caretaker_flag}
+            </span>
+          )}{' '}
+          looks after {pet.name}.
+        </p>
+      ) : (
+        <p className="muted">No caretaker yet. Make a code and send it to them.</p>
+      )}
+      {invite === undefined ? null : invite ? (
+        <>
+          <p className="muted small">
+            Not used yet: waiting for {invite.caretaker_name || 'them'} to join.
+            {pet.caretaker_name &&
+              invite.caretaker_name.trim().toLowerCase() !== pet.caretaker_name.toLowerCase() &&
+              ` When they join, they replace ${pet.caretaker_name}.`}
+          </p>
+          <InviteCard invite={invite} />
+        </>
+      ) : (
+        pet.caretaker_name && <p className="muted small">No unused code. Make one to invite a new caretaker.</p>
+      )}
+      <form className="carer-new" onSubmit={makeCode}>
+        <div className="grid-2">
+          <Field label="Caretaker's name">
+            <input maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Their city">
+            <input maxLength={60} value={city} onChange={(e) => setCity(e.target.value)} />
+          </Field>
+        </div>
+        {error && <p className="error">{error}</p>}
+        <div className="form-actions">
+          <button className="btn ghost" disabled={busy}>
+            {busy ? 'Making…' : 'Make a new code'}
+          </button>
+          {invite && <span className="muted small">The old code stops working.</span>}
+        </div>
+      </form>
+    </section>
   )
 }
 

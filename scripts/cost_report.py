@@ -29,6 +29,9 @@ sys.path.insert(0, str(REPO))
 
 from backend.config import MODEL_PRICES, PRICES_CONFIRMED, TOKEN_LOG_PATH  # noqa: E402
 
+KEY_NOTE = ("The API key for this project was provided by my professor for the course, so I don't pay for "
+            "these calls myself; the dollar figures show what Tended would cost to run, not my own spending.")
+
 DAYS = 30
 CHECKS_PER_DAY = 1
 QUESTIONS_PER_DAY = 3
@@ -188,6 +191,7 @@ def main() -> int:
         "- Ask Tended emergencies (e.g. “she ate a lily leaf”) skip the model entirely, so they cost $0. "
         "They aren't in the log, so the per-question average is a little high.",
         "- Safety-test calls are logged to `logs/test_token_log.csv` and are not included here.",
+        "- " + KEY_NOTE,
     ]
     out = REPO / "logs" / "cost_report.md"
     out.parent.mkdir(exist_ok=True)

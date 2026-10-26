@@ -1,4 +1,11 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+
+/** A pet's name never breaks mid-word: the longest word sets a smaller size instead. */
+export function nameFit(name: string): CSSProperties {
+  const longest = Math.max(...name.split(/[\s-]+/).map((w) => w.length)) // may break at spaces and hyphens
+  const scale = longest <= 7 ? 1 : longest <= 9 ? 0.86 : longest <= 12 ? 0.72 : longest <= 16 ? 0.58 : 0.48
+  return { fontSize: `${scale}em` }
+}
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

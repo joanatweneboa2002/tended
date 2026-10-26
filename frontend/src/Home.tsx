@@ -10,7 +10,7 @@ import { PetAvatar } from './PetAvatar'
 import { ProgressRing } from './ProgressRing'
 import { lateText, TickExtras, TodoRow, useTaskTick } from './Schedule'
 import { dayIn, gap, greeting, stampFor, timeIn, todayIn, wallToDate, yourTz } from './time'
-import { When } from './ui'
+import { nameFit, When } from './ui'
 
 export type Tab = 'home' | 'schedule' | 'health' | 'messages' | 'appointments' | 'profile'
 
@@ -203,7 +203,10 @@ function Hero({ d, pet, role, now, urgent, go }: { d: Dashboard; pet: Pet; role:
     <section className="hero">
       <div className="hero-text">
         <h1>
-          {pet.name} <RealBadge sample={pet.is_sample} />
+          <span className="pet-name" style={nameFit(pet.name)}>
+            {pet.name}
+          </span>{' '}
+          <RealBadge sample={pet.is_sample} />
         </h1>
         <p className="hero-status">{status(d, urgent)}</p>
         <p className="hero-facts">{petFacts(pet)}</p>

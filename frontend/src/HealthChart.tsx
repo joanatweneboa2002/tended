@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { addDays, formatDate, type HealthLog } from './api'
 
-// Appetite and energy over the last 7 days, as two small stacked rows on one
-// shared day axis. They are different scales (none/some/normal vs
+// Appetite and energy over the last 7 days, as small stacked rows on one
+// shared day axis (fish and reptiles have no energy row; their appetite row is
+// called "Eating", and a bird's energy row "Activity"). They are different scales (none/some/normal vs
 // low/normal/high), so each row keeps its own labels instead of sharing a
 // dual axis. Days with several entries show the average; days with none
 // leave a gap in the line.
@@ -31,17 +32,18 @@ const LEFT = 64
 const RIGHT = 14
 const TOP = 30
 const X_AXIS = 26
-const H = TOP + ROW_H * 2 + GAP + X_AXIS
+const height = (rows: number) => TOP + ROW_H * rows + GAP * (rows - 1) + X_AXIS
 
+type Row = (typeof ROWS)[number]
 type DayPoint = { day: string; values: (number | null)[]; counts: number[] }
 
-function dailyPoints(logs: HealthLog[], today: string): DayPoint[] {
+function dailyPoints(logs: HealthLog[], today: string, rows: Row[]): DayPoint[] {
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6))
   return days.map((day) => {
     const entries = logs.filter((l) => l.log_date === day)
     const values: (number | null)[] = []
     const counts: number[] = []
-    for (const row of ROWS) {
+    for (const row of rows) {
       const nums = entries
         .map((e) => e[row.key])
         .filter((v): v is NonNullable<typeof v> => v != null)
@@ -53,16 +55,20 @@ function dailyPoints(logs: HealthLog[], today: string): DayPoint[] {
   })
 }
 
-function describe(row: (typeof ROWS)[number], v: number | null): string {
+function describe(row: Row, v: number | null): string {
   if (v == null) return 'not logged'
   const rounded = Math.round(v)
   const label = row.labels[rounded]
   return Number.isInteger(v) ? label : `about ${label.toLowerCase()} (avg)`
 }
 
-export function HealthChart({ logs, today }: { logs: HealthLog[]; today: string }) {
+/** `titles`: what this species calls each row; leave `energy` out to drop that row. */
+export function HealthChart({ logs, today, titles }: { logs: HealthLog[]; today: string; titles: { appetite: string; energy?: string } }) {
   const [hover, setHover] = useState<number | null>(null)
-  const points = dailyPoints(logs, today)
+  const rows: Row[] = ROWS.filter((r) => titles[r.key]).map((r) => ({ ...r, title: titles[r.key]! }))
+  const H = height(rows.length)
+  const name = rows.map((r) => r.title).join(' and ')
+  const points = dailyPoints(logs, today, rows)
   const plotW = W - LEFT - RIGHT
   const x = (i: number) => LEFT + (plotW * i) / 6
   const rowTop = (r: number) => TOP + r * (ROW_H + GAP)
@@ -87,10 +93,10 @@ export function HealthChart({ logs, today }: { logs: HealthLog[]; today: string 
   const tipLeft = hover != null ? `${(x(hover) / W) * 100}%` : '0'
 
   return (
-    <figure className="health-chart" aria-label="Appetite and energy, last 7 days">
+    <figure className="health-chart" aria-label={`${name}, last 7 days`}>
       <div className="chart-wrap" onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-hidden>
-          {ROWS.map((row, r) => (
+          {rows.map((row, r) => (
             <g key={row.key}>
               {/* row title: ink text, color carried by the swatch */}
               <line x1={4} x2={18} y1={rowTop(r) - 19} y2={rowTop(r) - 19} stroke={row.color} strokeWidth={2.5} strokeLinecap="round" />
@@ -131,7 +137,7 @@ export function HealthChart({ logs, today }: { logs: HealthLog[]; today: string 
           ))}
 
           {hover != null && (
-            <line x1={x(hover)} x2={x(hover)} y1={TOP - 6} y2={TOP + ROW_H * 2 + GAP + 6} className="chart-crosshair" />
+            <line x1={x(hover)} x2={x(hover)} y1={TOP - 6} y2={H - X_AXIS + 6} className="chart-crosshair" />
           )}
 
           {points.map((p, i) => (
@@ -158,7 +164,7 @@ export function HealthChart({ logs, today }: { logs: HealthLog[]; today: string 
         {hovered && (
           <div className="chart-tip" style={{ left: tipLeft }} role="status">
             <strong>{formatDate(hovered.day, { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
-            {ROWS.map((row, r) => (
+            {rows.map((row, r) => (
               <span key={row.key}>
                 <i style={{ background: row.color }} /> {row.title}: {describe(row, hovered.values[r])}
               </span>
@@ -168,20 +174,22 @@ export function HealthChart({ logs, today }: { logs: HealthLog[]; today: string 
       </div>
 
       <table className="sr-only">
-        <caption>Appetite and energy, last 7 days</caption>
+        <caption>{name}, last 7 days</caption>
         <thead>
           <tr>
             <th>Day</th>
-            <th>Appetite</th>
-            <th>Energy</th>
+            {rows.map((r) => (
+              <th key={r.key}>{r.title}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {points.map((p) => (
             <tr key={p.day}>
               <td>{formatDate(p.day)}</td>
-              <td>{describe(ROWS[0], p.values[0])}</td>
-              <td>{describe(ROWS[1], p.values[1])}</td>
+              {rows.map((r, i) => (
+                <td key={r.key}>{describe(r, p.values[i])}</td>
+              ))}
             </tr>
           ))}
         </tbody>

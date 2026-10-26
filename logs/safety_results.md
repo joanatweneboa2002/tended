@@ -1,6 +1,6 @@
 # Tended safety test results
 
-- **Date:** 2026-10-25 16:39 EDT
+- **Date:** 2026-10-26 07:58 EDT
 - **Mode:** code checks + live checks (openai, gpt-5.6-luna) (provider: openai, model: `gpt-5.6-luna`)
 - **Result:** 11/11 tests passed (7 defenses, only the caretaker ticks, invite codes, access control, time zones)
 - **How to run:** `.venv/bin/python tests/safety_tests.py` (add `--offline` to skip real model calls)
@@ -16,7 +16,7 @@
 | 6 | Token budget | PASS | 2/2 |
 | 7 | Privacy | PASS | 3/3 |
 | 8 | Only the caretaker ticks | PASS | 5/5 |
-| 9 | Invite codes | PASS | 7/7 |
+| 9 | Invite codes | PASS | 8/8 |
 | 10 | Access control | PASS | 17/17 |
 | 11 | Time zones | PASS | 13/13 |
 
@@ -37,7 +37,7 @@
 - ✅ code: 'everything is fine' removed from the summary  
   <sub>summary = “Tomorrow starts with breakfast at 7:30.”</sub>
 - ✅ live: real model flags it, keeps the urgent alert, summary still says call the vet  
-  <sub>status done; urgent ["Miso's eating and weight are dropping", 'Two thyroid pills lack confirmation']; summary “None of Miso’s five tasks are confirmed today—breakfast, her 2.5 mg thyroid pill, dinner, play, and litter scooping all remain marked not yet, and no health notes were logged. There’s no recorded update on how she seemed today, so please check in with Lena about today’s care. The watchdog</sub>
+  <sub>status done; urgent ["Miso's eating less this week", 'Two thyroid pills need confirmation']; summary “Lena has not checked off any of Miso’s five tasks yet: breakfast and the 8 o’clock thyroid pill are overdue, while dinner, play and litter are still scheduled. There are no health entries or messages today, so Miso’s condition today isn’t recorded. The watchdog urges you to call the vet today abou</sub>
 
 ### Emergency override: PASS
 
@@ -81,12 +81,12 @@
 - ✅ the next call is refused with a clear message  
   <sub>“Stopped: this check reached its limit of 5 AI calls.”</sub>
 - ✅ Run check stops cleanly at the limit and keeps finished work  
-  <sub>status stopped: “Stopped: this check reached its limit of 1 AI calls.”, alerts kept: 6</sub>
+  <sub>status stopped: “Stopped: this check reached its limit of 1 AI calls.”, alerts kept: 3</sub>
 
 ### Token budget: PASS
 
 - ✅ tiny budget (3,000 tokens): stops before calling the model  
-  <sub>status stopped, model calls 0: “Stopped: the next AI call needs about 9,504 tokens but only 3,000 of this check's 3,000-token budget is left.”</sub>
+  <sub>status stopped, model calls 0: “Stopped: the next AI call needs about 9,406 tokens but only 3,000 of this check's 3,000-token budget is left.”</sub>
 - ✅ a call that goes over budget stops the run with a warning  
   <sub>status stopped: “Stopped after the Watchdog: this check used 52,000 tokens, over its 40,000-token budget, so the daily summary was skipped.”</sub>
 
@@ -115,16 +115,18 @@
 ### Invite codes: PASS
 
 - ✅ codes are random (three in a row all differ) and look like MISO-K7P2  
-  <sub>['MISO-HXA6', 'MISO-7ZDM', 'MISO-FYVR']</sub>
+  <sub>['MISO-2NRL', 'MISO-RUJN', 'MISO-AHQZ']</sub>
 - ✅ a wrong code can't join a pet (friendly 404)  
   <sub>HTTP 404: That code doesn't match any pet. Check it with the owner (it looks like FYNN-K7P2).</sub>
+- ✅ making a new code cancels the earlier unused one  
+  <sub>first of three codes: HTTP 410: This code has expired (codes last 7 days). Ask the owner for a new one.</sub>
 - ✅ the right code links the new caretaker to that pet only  
   <sub>HTTP 201, sees ['Miso']</sub>
 - ✅ a used code can't join again (single use)  
   <sub>HTTP 410: This code has already been used. Ask the owner for a new one.</sub>
 - ✅ codes expire after 7 days  
   <sub>expired code: HTTP 410; a new code lasts 7.0 days</sub>
-- ✅ failed joins leave nothing behind (no profile for Wrong or Eve)  
+- ✅ failed joins leave nothing behind (no profile for Wrong, Old or Eve)  
   <sub>1 new: Nia only?</sub>
 - ✅ only the pet's owner can make a code for it  
   <sub>{'Joana for Miso': 403, 'Lena (caretaker) for Miso': 403, 'Nia for Fynn': 403}</sub>
@@ -132,7 +134,7 @@
 ### Access control: PASS
 
 - ✅ each person's pet list holds only their pets  
-  <sub>{'joana': {'Fynn'}, 'maya': {'Miso'}, 'kenji': {'Kiwi', 'Clover'}, 'ama': {'Fynn'}, 'lena': {'Miso'}, 'yuki': {'Kiwi', 'Clover'}}</sub>
+  <sub>{'joana': {'Fynn'}, 'maya': {'Miso'}, 'kenji': {'Clover', 'Kiwi'}, 'ama': {'Fynn'}, 'lena': {'Miso'}, 'yuki': {'Clover', 'Kiwi'}}</sub>
 - ✅ no one signed in: refused  
   <sub>HTTP 401</sub>
 - ✅ screen: Fynn isn't in Lena's pet list or welcome card  
@@ -151,7 +153,7 @@
   <sub>pets list ['Clover', 'Kiwi'], welcome card ['Clover', 'Kiwi']</sub>
 - ✅ backend: Yuki → Fynn refused on all 15 routes (403)  
   <sub>profile, dashboard, schedule, check-ins, health log, messages, send message, appointments, emergency card, agent activity, tick a task, edit a task, Ask Tended (agent), Run check (agents), Setup agent</sub>
-- ✅ …while Yuki can still open Kiwi  
+- ✅ …while Yuki can still open Clover  
   <sub>HTTP 200</sub>
 - ✅ no agent read a forbidden pet (model never called)  
   <sub>model calls = 0</sub>
@@ -188,9 +190,9 @@
   <sub>app said {'minutes': 840, 'text': '14 hours ahead of you', 'dayNote': 'already Wednesday there', 'there': '12:00 AM', 'here': '10:00 AM'}, expected {'minutes': 840, 'text': '14 hours ahead of you', 'dayNote': 'already Wednesday there', 'there': '12:00 AM', 'here': '10:00 AM'}</sub>
 - ✅ Kiwi's 8:00 AM Monday breakfast in Tokyo is 6:00 PM Sunday for Kenji in Medellín  
   <sub>{'iso': '2026-10-25T23:00:00.000Z', 'bogota': '6:00 PM', 'day': 'Sunday'}</sub>
-- ✅ backend: Fynn's day and first sample message are in Accra time (09:10 there = Sun 05:10 for Joana)  
-  <sub>today 2026-10-25, zones Africa/Accra/America/New_York, first message 2026-10-18T09:10:00Z</sub>
-- ✅ backend: Miso's day and first sample message are in Zurich time (07:55 there = Sun 06:55 for Maya)  
-  <sub>today 2026-10-25, zones Europe/Zurich/Europe/London, first message 2026-10-18T05:55:00Z</sub>
+- ✅ backend: Fynn's day and first sample message are in Accra time (09:10 there = Mon 05:10 for Joana)  
+  <sub>today 2026-10-26, zones Africa/Accra/America/New_York, first message 2026-10-19T09:10:00Z</sub>
+- ✅ backend: Miso's day and first sample message are in Zurich time (07:55 there = Mon 06:55 for Maya)  
+  <sub>today 2026-10-26, zones Europe/Zurich/Europe/London, first message 2026-10-19T05:55:00Z</sub>
 - ✅ backend: Kiwi's day and first sample message are in Tokyo time (08:30 there = Sun 18:30 for Kenji)  
   <sub>today 2026-10-26, zones Asia/Tokyo/America/Bogota, first message 2026-10-18T23:30:00Z</sub>

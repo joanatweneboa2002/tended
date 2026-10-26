@@ -3,7 +3,8 @@
 The owner creates a code for one pet (e.g. FYNN-K7P2) and sends it to their
 caretaker. The caretaker enters it with their name and city; that creates
 their profile, linked to that pet only. Codes are random, single use and
-expire after 7 days; a wrong, used or expired code can't join anything.
+expire after 7 days; a wrong, used or expired code can't join anything. Making a new
+code cancels the pet's earlier unused code, so only one works at a time.
 """
 
 import re
@@ -50,6 +51,9 @@ def create_invite(pet_id: int, body: InviteIn, user=Me) -> dict:
     now = datetime.now(timezone.utc)
     with connect() as conn:
         pet = get_pet_row(conn, pet_id)
+        # one working code per pet: a new code cancels any earlier unused one
+        conn.execute("UPDATE invites SET expires_at = ? WHERE pet_id = ? AND used_at IS NULL AND expires_at > ?",
+                     (_iso(now), pet_id, _iso(now)))
         for _ in range(20):  # a clash is very unlikely; just pick again
             code = _new_code(pet["name"])
             if not conn.execute("SELECT 1 FROM invites WHERE code = ?", (code,)).fetchone():
@@ -59,7 +63,25 @@ def create_invite(pet_id: int, body: InviteIn, user=Me) -> dict:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (code, pet_id, user["id"], body.name.strip(), body.city.strip(), _iso(now), _iso(now + timedelta(days=VALID_DAYS))),
         )
-    return {"code": code, "pet_name": pet["name"], "caretaker_name": body.name.strip(), "expires_at": _iso(now + timedelta(days=VALID_DAYS))}
+    return {"code": code, "pet_name": pet["name"], "caretaker_name": body.name.strip(), "caretaker_city": body.city.strip(),
+            "expires_at": _iso(now + timedelta(days=VALID_DAYS))}
+
+
+@router.get("/pets/{pet_id}/invites/open")
+def open_invite(pet_id: int, user=Me) -> dict | None:
+    """The owner's current unused code for this pet, if any (for the Caretaker card)."""
+    if user["role"] != "owner":
+        raise HTTPException(403, "Only the pet's owner can see its invite code.")
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT i.*, p.name AS pet_name FROM invites i JOIN pets p ON p.id = i.pet_id "
+            "WHERE i.pet_id = ? AND i.used_at IS NULL AND i.expires_at > ? ORDER BY i.created_at DESC LIMIT 1",
+            (pet_id, utc_now_iso()),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"code": row["code"], "pet_name": row["pet_name"], "caretaker_name": row["caretaker_name"],
+            "caretaker_city": row["caretaker_city"], "expires_at": row["expires_at"]}
 
 
 def _usable(conn, code: str):

@@ -151,7 +151,14 @@ CREATE TABLE IF NOT EXISTS health_logs (
     water        TEXT CHECK (water IN ('less', 'normal', 'more')),
     energy       TEXT CHECK (energy IN ('low', 'normal', 'high')),
     potty        TEXT CHECK (potty IN ('normal', 'off')),
-    symptoms     TEXT NOT NULL DEFAULT ''
+    symptoms     TEXT NOT NULL DEFAULT '',
+    -- species-specific (birds, fish, reptiles); see backend/health.py
+    droppings     TEXT,
+    feathers      TEXT,
+    swimming      TEXT,
+    water_clarity TEXT,
+    shedding      TEXT,
+    basking       TEXT
 );
 CREATE INDEX IF NOT EXISTS health_by_pet_date ON health_logs (pet_id, log_date);
 
@@ -251,6 +258,7 @@ MIGRATIONS = {
     "tasks": [
         ("replaces_task_id", "INTEGER REFERENCES tasks(id)"),
     ],
+    "health_logs": [(col, "TEXT") for col in ("droppings", "feathers", "swimming", "water_clarity", "shedding", "basking")],
 }
 
 

@@ -1,6 +1,6 @@
 # Tended cost report
 
-- **Generated:** 2026-10-25 17:04 EDT from `data/token_log.csv` (29 AI calls, Oct 25 14:43–Oct 25 17:37 UTC, model: gpt-5.6-luna)
+- **Generated:** 2026-10-25 17:13 EDT from `data/token_log.csv` (29 AI calls, Oct 25 14:43–Oct 25 17:37 UTC, model: gpt-5.6-luna)
 - **Calls by provider and model:** openai / gpt-5.6-luna: 29
 - **Prices (USD per 1M tokens, input · cached · output):** gpt-5.6-luna: $0.20 · $0.02 · $1.20
 - **Assumptions:** 30 days a month; the owner runs one check a day (watchdog + daily summary); the caretaker asks 3 Ask Tended questions a day.
@@ -44,3 +44,4 @@ Setup is a one-off per trip, about **$0.00276** per setup conversation (2.0 call
 - These are averages over the calls logged so far, mostly from development and testing; they will settle as real use builds up. The first call after a restart (or a prompt edit) has no cache, which makes these numbers slightly pessimistic.
 - Ask Tended emergencies (e.g. “she ate a lily leaf”) skip the model entirely, so they cost $0. They aren't in the log, so the per-question average is a little high.
 - Safety-test calls are logged to `logs/test_token_log.csv` and are not included here.
+- The API key for this project was provided by my professor for the course, so I don't pay for these calls myself; the dollar figures show what Tended would cost to run, not my own spending.

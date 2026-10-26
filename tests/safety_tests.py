@@ -387,26 +387,31 @@ def test_invite_codes(c):
     wrong = join("MISO-ZZZZ" if "MISO-ZZZZ" not in codes else "MISO-YYYY", "Wrong")
     check(out, "a wrong code can't join a pet (friendly 404)", wrong.status_code == 404 and "doesn't match" in wrong.json()["detail"],
           f"HTTP {wrong.status_code}: {wrong.json().get('detail')}")
-    first = join(codes[0].lower(), "Nia")  # typed in lower case still works
+    replaced = join(codes[0], "Old")
+    check(out, "making a new code cancels the earlier unused one", replaced.status_code == 410,
+          f"first of three codes: HTTP {replaced.status_code}: {replaced.json().get('detail')}")
+    first = join(codes[2].lower(), "Nia")  # typed in lower case still works
     nia = first.json()
     act_as(c, nia["id"])
     sees = [p["name"] for p in c.get("/api/pets").json()]
     check(out, "the right code links the new caretaker to that pet only", first.status_code == 201 and sees == ["Miso"],
           f"HTTP {first.status_code}, sees {sees}")
-    again = join(codes[0], "Eve")
+    again = join(codes[2], "Eve")
     check(out, "a used code can't join again (single use)", again.status_code == 410 and "already been used" in again.json()["detail"],
           f"HTTP {again.status_code}: {again.json().get('detail')}")
+    act_as(c, "maya")
+    later = c.post(f"/api/pets/{miso}/invites", json={}).json()["code"]
     conn = sqlite3.connect(db.DB_PATH)
-    conn.execute("UPDATE invites SET expires_at = '2000-01-01T00:00:00Z' WHERE code = ?", (codes[1],))
-    days = conn.execute("SELECT julianday(expires_at) - julianday(created_at) FROM invites WHERE code = ?", (codes[2],)).fetchone()[0]
+    days = conn.execute("SELECT julianday(expires_at) - julianday(created_at) FROM invites WHERE code = ?", (later,)).fetchone()[0]
+    conn.execute("UPDATE invites SET expires_at = '2000-01-01T00:00:00Z' WHERE code = ?", (later,))
     conn.commit()
     conn.close()
-    late = join(codes[1], "Eve")
+    late = join(later, "Eve")
     check(out, "codes expire after 7 days", late.status_code == 410 and "expired" in late.json()["detail"] and round(days) == 7,
           f"expired code: HTTP {late.status_code}; a new code lasts {days:.1f} days")
     after = [u["name"] for u in c.get("/api/users").json()]
-    check(out, "failed joins leave nothing behind (no profile for Wrong or Eve)",
-          len(after) == people_before + 1 and "Eve" not in after and "Wrong" not in after, f"{len(after) - people_before} new: Nia only?")
+    check(out, "failed joins leave nothing behind (no profile for Wrong, Old or Eve)",
+          len(after) == people_before + 1 and not {"Eve", "Wrong", "Old"} & set(after), f"{len(after) - people_before} new: Nia only?")
     act_as(c, "joana")
     fynn = next(p["id"] for p in c.get("/api/pets").json() if p["name"] == "Fynn")
     tries = {"Joana for Miso": c.post(f"/api/pets/{miso}/invites", json={}).status_code}

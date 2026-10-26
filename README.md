@@ -77,14 +77,16 @@ cp .env.example .env        # Windows: copy .env.example .env
 
 ### 6. Start it (two terminals)
 
-**Terminal 1: backend** (http://localhost:8000)
+**Terminal 1: backend** (http://localhost:8000, or the next free port)
 
 ```bash
-.venv/bin/python -m uvicorn backend.main:app --port 8000        # Mac
-.venv\Scripts\python -m uvicorn backend.main:app --port 8000    # Windows
+.venv/bin/python -m backend        # Mac
+.venv\Scripts\python -m backend    # Windows
 ```
 
-**Terminal 2: frontend** (http://localhost:5173)
+If port 8000 is taken, it tries 8001, 8002 and so on and prints the one it picked, e.g. `Tended backend: http://localhost:8001`. The frontend finds it automatically.
+
+**Terminal 2: frontend** (http://localhost:5173, or the next free port)
 
 ```bash
 cd frontend
@@ -99,9 +101,11 @@ Tended AI: using Portkey (https://api.portkey.ai/v1), model gpt-6-luna. .env fil
 Tended AI: OFF (no OPENAI_API_KEY or PORTKEY_API_KEY). .env files read: …
 ```
 
-Open **http://localhost:5173**. Stop either one with Ctrl+C. The backend runs as a single process without auto-reload, so restart it after changing Python code.
+Open the address the frontend prints (usually **http://localhost:5173**). Stop either one with Ctrl+C. The backend runs as a single process without auto-reload, so restart it after changing Python code.
 
 > **Mac shortcut:** `./dev.sh start` starts both in the background (`./dev.sh stop`, `restart`, `status`; logs go to `logs/`).
+
+Something not working? See [Troubleshooting](#troubleshooting).
 
 **First run:** the database (`data/tended.db`) is created automatically with four sample pets: **Miso** the cat and **Clover** the rabbit (a week of history ending yesterday), plus **Fynn** the Maltese and **Kiwi** the green-cheeked conure (a few days each). To get a fresh copy later, run `python -m backend.seed --reset` with the venv's Python, or use **Reset sample data** on a sample pet's profile.
 
@@ -109,7 +113,7 @@ Open **http://localhost:5173**. Stop either one with Ctrl+C. The backend runs as
 
 ## Try it in 2 minutes
 
-Tended opens on a landing screen ("Care for your pet while you're away") with two big buttons and two links. There are no passwords:
+Tended opens on a landing screen ("Care for your pet while you're away") with two links, **Already on Tended? Pick your profile** and **Just looking? Try the demo**. There are no passwords. If no one has joined on this device yet, "Pick your profile" offers the two ways to join:
 
 - **I own a pet:** three short steps (you, your pet, your caretaker). Your time zone is detected and can be changed. The last step gives you an invite code like `BOLT-J6VY` with a copy button and a ready-to-send message for your caretaker. Then Home nudges you to **✨ Set up with AI** to build the schedule.
 - **I'm looking after a pet:** enter the code from the owner, your name and city (and a photo if you like). It shows which pet the code is for; a wrong, used or expired code gets a friendly message. The right code links you to that pet only and opens the caretaker Home.
@@ -161,6 +165,7 @@ Owners see only their own pets and caretakers only the pets they look after; the
   - **Isolation:** every test runs on a throwaway database, so your data isn't touched.
   - **Code checks:** these use a deliberately misbehaving fake model, which proves the code-level defenses hold even if the model doesn't.
 - **`scripts/cost_report.py`:** reads `data/token_log.csv` and writes `logs/cost_report.md`, using the prices in `backend/config.py`.
+  - **Who pays:** The API key for this project was provided by my professor for the course, so I don't pay for these calls myself; the dollar figures show what Tended would cost to run, not my own spending.
 
 The latest results are committed in [`logs/safety_results.md`](logs/safety_results.md) and [`logs/cost_report.md`](logs/cost_report.md).
 
@@ -181,6 +186,8 @@ The latest results are committed in [`logs/safety_results.md`](logs/safety_resul
 - **Token log:** every AI call is logged to `data/token_log.csv` (agent, provider, model, input/cached/output tokens, time, run id).
 - **Meds rule:** once a dose is marked given for a time slot, a second one is blocked in code and by a unique index in the database. This includes a task that replaced an earlier task on the same day.
 - **Accounts and access:** demo only, no passwords. The browser sends the chosen person's id (`X-Tended-User`), and one check in `backend/users.py` runs before every route: any route that names a pet (directly or through a task, check-in, appointment, agent run or log suggestion) is refused unless it's the person's own pet. So the agents only ever read pets the person may see. Messages are per pet, between its owner and its caretaker; the sender's name and role come from the account, not the browser.
+- **Health log by species:** the Health tab only shows what makes sense: dogs and cats get weight, appetite, water, energy and potty; birds appetite, droppings, feathers and activity; fish eating, swimming and water clarity; reptiles eating, shedding and basking; other species appetite and energy. Everyone gets notes, and every field is optional. Activity and eating share the energy and appetite columns, so the Watchdog's trend checks work for every species, and it also flags species signs seen on 2+ days (droppings off, plucking, odd swimming, cloudy water, stuck shed, basking less).
+- **Invite codes:** the owner's pet profile has a **Caretaker** card with who looks after the pet, the current unused code (with copy) and **Make a new code**, which cancels the old one.
 - **Time zones:** schedule and appointment times are in the pet's home time. Everyone sees the pet's local time first; the owner also sees their own time, smaller. The owner's zone comes from their account.
 
 ### Folder layout
@@ -220,6 +227,31 @@ tended/
 
 Miso's week has a hidden problem for the agents to find. Her appetite slowly drops (feeding notes go from "ate it all" to "a few bites"), her energy goes low, her weight goes from 10.2 to 9.7 lb, and she drinks more. One morning's thyroid pill has no check-in, and when Maya asks "did she take her pill?", Lena isn't sure. Day 6 exists only in the chat, so the Watchdog can suggest logging it. Clover's, Fynn's and Kiwi's weeks are healthy. Every pet's check-ins and messages are written in its own local time (Zurich, Tokyo, Accra).
 
+## Troubleshooting
+
+**"Address already in use", "port 8000 is in use" or `[Errno 48]` / `[WinError 10048]`.** Another program (often an old Tended that didn't stop) is using the port.
+
+- Tended handles this on its own: `python -m backend` moves on to 8001, 8002… and Vite moves on to 5174, 5175…; each prints the port it picked, and the frontend finds the backend wherever it is. Open the address the frontend prints.
+- To free the port instead, find what's using it and stop it:
+
+  ```bash
+  # Mac
+  lsof -i :8000                 # shows the PID in the second column
+  kill <PID>                    # or: ./dev.sh stop  (stops only Tended)
+
+  # Windows (PowerShell)
+  netstat -ano | findstr :8000  # the PID is the last number
+  taskkill /PID <PID> /F
+  ```
+
+  Do the same for 5173 if the frontend's port is taken. Closing the terminal window that runs Tended also stops it.
+
+**"Can't reach the backend" in the app.** The backend isn't running (or crashed): start it in its own terminal and read the error it prints. If you start it on a fixed port with uvicorn yourself, tell the frontend where it is: `TENDED_API=http://127.0.0.1:8001 npm run dev` (Windows PowerShell: `$env:TENDED_API="http://127.0.0.1:8001"; npm run dev`).
+
+**Flags look like letters ("US" instead of 🇺🇸).** Windows doesn't draw flag emoji, so Tended ships a small flag font; refresh the page if you see letters.
+
+---
+
 ## Photo credits
 
 Pet photos are real photos from **Wikimedia Commons**, used under the licenses below and resized to 900 px wide. Unsplash and Pexels block automated downloads, so these were the best freely licensed photos that could be fetched in code. The CC BY and CC BY-SA licenses require this credit, so keep this section if you keep the photos.
@@ -237,10 +269,12 @@ Pet photos are real photos from **Wikimedia Commons**, used under the licenses b
 | `frontend/public/pets/napping-cat.jpg` | All-clear state | [Sleeping cat on her back.jpg](https://commons.wikimedia.org/wiki/File:Sleeping_cat_on_her_back.jpg) | Umberto Salvagnin | CC BY 2.0 |
 | `frontend/public/pets/happy-dog.jpg` | Add-a-pet form | [Bright Eyed Husky.jpg](https://commons.wikimedia.org/wiki/File:Bright_Eyed_Husky.jpg) | Craig Chew-Moulding | CC BY-SA 2.0 |
 
+**Flags:** country flags use the "Twemoji Country Flags" font (`frontend/public/fonts/TwemojiCountryFlags.woff2`) from [country-flag-emoji-polyfill](https://github.com/talkjs/country-flag-emoji-polyfill) by TalkJS (MIT); the flag art is from [Twemoji](https://github.com/twitter/twemoji), licensed CC BY 4.0. It's there because Windows doesn't draw flag emoji.
+
 **Swap a photo:** replace the file with one of your own, keeping the same name. For example, put your Maltese at `frontend/public/pets/fynn.jpg` and refresh. If you swap in a photo from Unsplash or Pexels, update its row here with the photographer's name and link.
 
 ### Notes
 
 - **`pet_reference.csv`:** short, approximate summaries of the Merck Veterinary Manual and ASPCA Animal Poison Control lists, with a source on every row. It's not veterinary advice; check it against the sources.
-- **Model prices:** set in `backend/config.py` (USD per 1M tokens). Confirm them on OpenAI's pricing page.
-- **Ports:** the frontend proxies `/api` to `http://127.0.0.1:8000`. To use another backend port: `TENDED_API=http://127.0.0.1:8001 npm run dev`.
+- **Model prices:** set in `backend/config.py` (USD per 1M tokens), confirmed Oct 2026.
+- **Ports:** the frontend forwards `/api` and `/photos` to the port the backend wrote to `data/backend.port` (8000 if there's none). `TENDED_API=http://127.0.0.1:8001 npm run dev` overrides it.
